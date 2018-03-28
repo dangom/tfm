@@ -13,12 +13,12 @@ with open('tfm/__init__.py', 'r') as f:
 with open('README.rst', 'r', encoding='utf-8') as f:
     readme = f.read()
 
-REQUIRES = []
+REQUIRES = ['nibabel', 'numpy', 'sklearn']
 
 setup(
     name='tfm',
     version=version,
-    description='',
+    description='Compute temporal functional modes of activation',
     long_description=readme,
     author='Daniel Gomez',
     author_email='d.gomez@donders.ru.nl',
@@ -28,11 +28,11 @@ setup(
     license='MIT/Apache-2.0',
 
     keywords=[
-        '',
+        'temporal functional modes',
     ],
 
     classifiers=[
-        'Development Status :: 4 - Beta',
+        'Development Status :: 3 - Alpha',
         'Intended Audience :: Developers',
         'License :: OSI Approved :: MIT License',
         'License :: OSI Approved :: Apache Software License',
@@ -43,7 +43,11 @@ setup(
         'Programming Language :: Python :: Implementation :: CPython',
         'Programming Language :: Python :: Implementation :: PyPy',
     ],
-
+    entry_points={
+        'console_scripts': [
+            'tfm = tfm.tfm:run_tfm',
+        ]
+    },
     install_requires=REQUIRES,
     tests_require=['coverage', 'pytest'],
 
