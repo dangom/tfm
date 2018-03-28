@@ -64,6 +64,7 @@ class MelodicData:
 
 class TFM:
 
+    # Deflation takes much longer, but converges more often.
     def __init__(self, n_components=30, max_iter=20_000, tol=0.0001,
                  algorithm='deflation', random_state=None):
 
@@ -98,10 +99,13 @@ def main(args):
         return os.path.join(outdir, name)
 
     if not args.dryrun:
+        # TODO Fix this error handling to only check if files would be
+        # overwritten.
         assert not os.path.exists(outdir)
         os.makedirs(outdir)
         assert os.path.exists(args.inputdir)
     else:
+        # Some debug info
         print(out('melodic_IC.nii.gz'))
         print(out('melodic_mix'))
         return
