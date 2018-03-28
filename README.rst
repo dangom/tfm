@@ -1,7 +1,9 @@
-tfm
+TFM
 ===
 
 -----
+Generate Temporal Functional Modes of Brain Activity by unmixing a spatial ICA mixing matrix by means of a temporal decomposition.
+
 
 .. contents:: **Table of Contents**
     :backlinks: none
@@ -9,13 +11,19 @@ tfm
 Installation
 ------------
 
-tfm is distributed on `PyPI <https://pypi.org>`_ as a universal
-wheel and is available on Linux/macOS and Windows and supports
-Python 3.5+ and PyPy.
+TFM supports python 3.5 and 3.6.
+Either clone the project and install it by running
 
 .. code-block:: bash
 
-    $ pip install tfm
+    $ python setup.py install
+
+
+or install it directly with pip by calling:
+
+.. code-block:: bash
+
+    $ pip install git+https://github.com/dangom/ica-yac.git
 
 License
 -------
