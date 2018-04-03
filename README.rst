@@ -23,7 +23,7 @@ or install it directly with pip by calling:
 
 .. code-block:: bash
 
-    $ pip install git+https://github.com/dangom/ica-yac.git
+    $ pip install git+https://github.com/dangom/tfm.git
 
 License
 -------

@@ -98,12 +98,16 @@ def main(args):
     def out(name):
         return os.path.join(outdir, name)
 
+    # Check that input directories are OK and that we don't overwrite anything.
     if not args.dryrun:
-        # TODO Fix this error handling to only check if files would be
-        # overwritten.
-        assert not os.path.exists(outdir)
-        os.makedirs(outdir)
         assert os.path.exists(args.inputdir)
+
+        if not os.path.exists(outdir):
+            os.makedirs(outdir)
+        else:
+            if not args.force:
+                assert os.listdir(outdir) == ""
+
     else:
         # Some debug info
         print(out('melodic_IC.nii.gz'))
@@ -111,11 +115,12 @@ def main(args):
         return
 
     # Load data
-    logging.info("Loading Melodic Data")
+    logging.info(f"Loading Melodic Data from {args.inputdir}")
     melodic_data = MelodicData(args.inputdir, args.labelfile)
 
     # Parse user inputs
     n_components = args.n_components or melodic_data.n_components
+    logging.info(f"Number of signal sICA components is {n_components}")
     tolerance = args.tolerance
     max_iter = args.max_iter
 
@@ -181,6 +186,10 @@ def _cli_parser():
 
     parser.add_argument('--dryrun', action='store_true',
                         help='Print which files would be generated.')
+
+    parser.add_argument('--force', action='store_true',
+                        help='Overwrite files.')
+
 
     return parser
 
