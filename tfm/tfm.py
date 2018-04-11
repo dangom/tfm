@@ -66,7 +66,7 @@ class TFM:
 
     # Deflation takes much longer, but converges more often.
     def __init__(self, n_components=30, max_iter=20_000, tol=0.0001,
-                 algorithm='deflation', random_state=None):
+                 algorithm='symmetric', random_state=None):
 
         self.ica = FastICA(max_iter=max_iter, tol=tol,
                            n_components=n_components,
@@ -120,27 +120,32 @@ def main(args):
 
     # Parse user inputs
     n_components = args.n_components or melodic_data.n_components
-    logging.info(f"Number of signal sICA components is {n_components}")
+    logging.info(f"Number of signal sICA components is {melodic_data.n_components}")
     tolerance = args.tolerance
     max_iter = args.max_iter
 
     # Compute TFMs.
     logging.info("Computing TFMs")
     try_counter = 1
+    algorithm = 'parallel'
     while True:
         try:
+            # Try using the parallel algorithm because it's faster.
             tfm_ica = TFM(n_components=n_components,
                           max_iter=max_iter,
                           tol=tolerance,
+                          algorithm=algorithm,
                           random_state=np.random.randint(0, 2**32 - 1))
             tfms, sources = tfm_ica.fit_transform_melodic(melodic_data)
         except UserWarning:
             try_counter += 1
             print('ICA did not converge. Retrying with new seed.')
-            if try_counter > 15:
+            if try_counter > 5 and algorithm == 'deflation':
                 raise
             else:
-                pass
+                logging.info("Parallel approach failed. Switching to Deflation")
+                try_counter = 1
+                algorithm = 'deflation'
         else:
             logging.info(f"ICA successful after {try_counter} attempts.")
             break
@@ -149,6 +154,8 @@ def main(args):
     # Save outputs
     logging.info(f"Saving outputs to directory {outdir}")
     tfms.to_filename(out('melodic_IC.nii.gz'))
+    np.savetxt(out('melodic_unmix'), tfm_ica.ica.mixing_,
+               delimiter='  ', fmt='%.6f')
     np.savetxt(out('melodic_mix'), sources, delimiter='  ', fmt='%.6f')
     np.savetxt(out('melodic_FTmix'), np.abs(np.fft.rfft(sources)),
                delimiter='  ', fmt='%.6f')
