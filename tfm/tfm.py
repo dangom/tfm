@@ -47,9 +47,11 @@ class MelodicData:
 
     def _get_rsns(self):
         """Load melodic IC from directory.
+        Note that we use the original ones, i.e.,
+        melodic_oIC and not melodic_IC
         """
         return nib.load(os.path.join(self.directory,
-                                     'melodic_IC.nii.gz'))
+                                     'melodic_oIC.nii.gz'))
 
     @property
     def rsns(self):
