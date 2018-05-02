@@ -153,14 +153,13 @@ def main(args):
             logging.info(f"ICA successful after {try_counter} attempts.")
             break
 
-
     # Save outputs
     logging.info(f"Saving outputs to directory {outdir}")
     tfms.to_filename(out('melodic_IC.nii.gz'))
     np.savetxt(out('melodic_unmix'), tfm_ica.ica.mixing_,
                delimiter='  ', fmt='%.6f')
     np.savetxt(out('melodic_mix'), sources, delimiter='  ', fmt='%.6f')
-    np.savetxt(out('melodic_FTmix'), np.abs(np.fft.rfft(sources)),
+    np.savetxt(out('melodic_FTmix'), np.abs(np.fft.rfft(sources, axis=0)),
                delimiter='  ', fmt='%.6f')
 
 
