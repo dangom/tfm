@@ -123,8 +123,8 @@ def main(args):
     melodic_data = MelodicData(args.inputdir, args.labelfile)
 
     # Parse user inputs
-    n_components = args.n_components or melodic_data.n_components
-    logging.info(f"Number of signal sICA components is {melodic_data.n_components}")
+    n_components = min(args.n_components, len(melodic_data.signal.T))
+    logging.info(f"Number of signal sICA components is {len(melodic_data.signal.T)}")
     tolerance = args.tolerance
     max_iter = args.max_iter
 
@@ -143,7 +143,6 @@ def main(args):
             tfms, sources = tfm_ica.fit_transform_melodic(melodic_data)
         except UserWarning:
             try_counter += 1
-            print('ICA did not converge. Retrying with new seed.')
             if try_counter > 5 and algorithm == 'deflation':
                 raise
             else:
