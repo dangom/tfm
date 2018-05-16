@@ -83,6 +83,8 @@ class TFM:
         # Normalize so that TFM scaling doesn't explode.
         mixing = self.ica.mixing_  # /self.ica.mixing_.sum(axis=1)[:, None]
         tfm = np.dot(rsns, mixing)
+        tfm -= np.mean(tfm)
+        tfm /= np.std(tfm)
         return nib.Nifti1Image(np.reshape(tfm,
                                           (*melodic_data.shape, -1)),
                                melodic_data.affine), sources
