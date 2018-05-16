@@ -27,7 +27,11 @@ import nibabel as nib
 import matplotlib.pyplot as plt
 
 
-PATTERN = '/project/3015046.07/derivatives/resting-state/fmriprep/sub-0*/ses-0*/func/sub-0*_ses-0*_task-rest_run-*_bold_space-MNI152NLin2009cAsym_preproc_highpass100.ica/tfm.ica/melodic_IC.nii.gz'
+PATTERN = ('/project/3015046.07/derivatives/resting-state/fmriprep/'
+           'sub-0*/ses-0*/func/'
+           'sub-0*_ses-0*_task-rest_run-*_bold_space-'
+           'MNI152NLin2009cAsym_preproc_highpass100.ica/'
+           'tfm.ica/melodic_IC.nii.gz')
 
 
 def generate_patterns(images):
