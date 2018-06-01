@@ -100,7 +100,7 @@ def main(args):
     if os.path.isabs(args.outputdir):
         outdir = args.outputdir
     else:
-        outdir = os.path.join(args.inputdir, 'tfm.ica')
+        outdir = os.path.join(args.inputdir, args.outputdir)
 
     def out(name):
         return os.path.join(outdir, name)
