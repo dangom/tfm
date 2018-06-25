@@ -86,6 +86,14 @@ class TFM:
         # Demean and variance normalize *EACH COMPONENT INDIVIDUALLY.*
         tfm -= np.mean(tfm, axis=0)
         tfm /= np.std(tfm, axis=0)
+
+        # Because ICA orientation is arbitrary, make it such that largest value
+        # is always positive.
+        for spatial_map, timeseries in zip(tfm.T, mixing.T):
+            if spatial_map[np.abs(spatial_map).argmax()] < 0:
+                spatial_map *= -1
+                timeseries *= -1
+
         return nib.Nifti1Image(np.reshape(tfm,
                                           (*melodic_data.shape, -1)),
                                melodic_data.affine), sources
