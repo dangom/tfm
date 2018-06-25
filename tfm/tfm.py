@@ -135,7 +135,7 @@ def main(args):
 
     # Parse user inputs
     n_components = min(args.n_components, len(melodic_data.signal.T))
-    logging.info(f"Number of signal sICA components is {len(melodic_data.signal.T)}")
+    logging.info(f"# of signal spatial ICs is {len(melodic_data.signal.T)}")
     tolerance = args.tolerance
     max_iter = args.max_iter
 
@@ -209,7 +209,6 @@ def _cli_parser():
 
     parser.add_argument('--force', action='store_true',
                         help='Overwrite files.')
-
 
     return parser
 
