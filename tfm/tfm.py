@@ -146,12 +146,12 @@ def main(args):
             tfms, sources = tfm_ica.fit_transform_melodic(melodic_data)
         except UserWarning:
             try_counter += 1
-            if try_counter > 5 and algorithm == 'deflation':
-                raise
-            else:
-                logging.info("Parallel approach failed. Switching to Deflation")
-                try_counter = 1
+            if try_counter > 5:
+                logging.info("Parallel approach failed. Moving to Deflation")
                 algorithm = 'deflation'
+                try_counter = 1
+            else:
+                logging.info(f'ICA attempt {try_counter} using {algorithm}')
         else:
             logging.info(f"ICA successful after {try_counter} attempts.")
             break
