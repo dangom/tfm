@@ -77,7 +77,7 @@ class MelodicData:
 class TFM:
 
     # Deflation takes much longer, but converges more often.
-    def __init__(self, n_components=30, max_iter=20_000, tol=0.0001,
+    def __init__(self, n_components=30, max_iter=20_000, tol=0.00001,
                  algorithm='symmetric', random_state=None):
 
         self.ica = FastICA(max_iter=max_iter, tol=tol,
