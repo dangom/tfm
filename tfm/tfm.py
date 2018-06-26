@@ -28,12 +28,22 @@ class MelodicData:
         self.shape = self._get_rsns().shape[:-1]
         self.affine = self._get_rsns().affine
 
+        self.explainedvar = self.get_explained_variance(directory)
+        self.explainedvar = self.explainedvar[self.labels]
+
     def get_melodic_mix(self, directory):
         """Read in the spatial melodic mix.
         """
         mixfile = os.path.join(directory, 'melodic_mix')
         mix = np.loadtxt(mixfile)
         return mix
+
+    def get_explained_variance(self, directory):
+        """Read in the melodic_ICstats file
+        """
+        mixstats = os.path.join(directory, 'melodic_ICstats')
+        stats = np.loadtxt(mixstats)[:, 1]
+        return stats
 
     def get_labels(self, directory, labelfile):
         """Parse the classification file.
@@ -80,8 +90,8 @@ class TFM:
         """
         sources = self.ica.fit_transform(melodic_data.signal)
         rsns = melodic_data.rsns
-        # Normalize so that TFM scaling doesn't explode.
-        mixing = self.ica.mixing_  # /self.ica.mixing_.sum(axis=1)[:, None]
+        # Use a copy so we don't mutate the internals of FastICA
+        mixing = self.ica.mixing_.copy()
         tfm = np.dot(rsns, mixing)
         # Demean and variance normalize *EACH COMPONENT INDIVIDUALLY.*
         tfm -= np.mean(tfm, axis=0)
@@ -89,10 +99,19 @@ class TFM:
 
         # Because ICA orientation is arbitrary, make it such that largest value
         # is always positive.
-        for spatial_map, timeseries in zip(tfm.T, mixing.T):
+        for spatial_map, node_weights in zip(tfm.T, mixing.T):
             if spatial_map[np.abs(spatial_map).argmax()] < 0:
                 spatial_map *= -1
-                timeseries *= -1
+                node_weights *= -1
+
+        # Now order the components according to the RMS of the mixing matrix.
+        weighted_mixing = melodic_data.explainedvar[:, None] * mixing
+        rms = np.sum(np.square(weighted_mixing), 0)
+        order = np.argsort(rms)[::-1]  # Decreasing order.
+
+        self.reordered_mixing = mixing[:, order]
+        tfm = tfm[:, order]
+        sources = sources[:, order]
 
         return nib.Nifti1Image(np.reshape(tfm,
                                           (*melodic_data.shape, -1)),
@@ -167,7 +186,7 @@ def main(args):
     # Save outputs
     logging.info(f"Saving outputs to directory {outdir}")
     tfms.to_filename(out('melodic_IC.nii.gz'))
-    np.savetxt(out('melodic_unmix'), tfm_ica.ica.mixing_,
+    np.savetxt(out('melodic_unmix'), tfm_ica.reordered_mixing,
                delimiter='  ', fmt='%.6f')
     np.savetxt(out('melodic_mix'), sources, delimiter='  ', fmt='%.6f')
     np.savetxt(out('melodic_FTmix'), np.abs(np.fft.rfft(sources, axis=0)),
