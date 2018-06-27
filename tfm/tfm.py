@@ -78,17 +78,25 @@ class TFM:
 
     # Deflation takes much longer, but converges more often.
     def __init__(self, n_components=30, max_iter=20_000, tol=0.00001,
-                 algorithm='symmetric', random_state=None):
+                 fun='logcosh', algorithm='parallel', random_state=None):
 
         self.ica = FastICA(max_iter=max_iter, tol=tol,
                            n_components=n_components,
+                           fun=fun,
                            algorithm=algorithm,
                            random_state=random_state)
+
+    def unmix(self, signal):
+        """Call FastICA on the signal components.
+        This is a separate function so we can call it from raicar.
+        """
+        sources = self.ica.fit_transform(signal)
+        return sources
 
     def fit_transform_melodic(self, melodic_data):
         """Take a MelodicData object and unmix it.
         """
-        sources = self.ica.fit_transform(melodic_data.signal)
+        sources = self.unmix(melodic_data.signal)
         rsns = melodic_data.rsns
         # Use a copy so we don't mutate the internals of FastICA
         mixing = self.ica.mixing_.copy()

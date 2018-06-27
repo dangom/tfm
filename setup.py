@@ -46,6 +46,7 @@ setup(
     entry_points={
         'console_scripts': [
             'tfm = tfm.tfm:run_tfm',
+            'raicar = tfm.raicar:main'
         ]
     },
     install_requires=REQUIRES,
