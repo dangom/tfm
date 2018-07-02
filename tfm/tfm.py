@@ -23,7 +23,12 @@ class MelodicData:
         self.directory = directory
         self.mix = self.get_melodic_mix(directory)
         self.n_components = self.mix.shape[1]
-        self.labels = self.get_labels(directory, labelfile)
+
+        if labelfile is not None:
+            self.labels = self.get_labels(directory, labelfile)
+        else:
+            self.labels = list(range(self.n_components))
+
         self.signal = self.mix[:, self.labels]
         self.shape = self._get_rsns().shape[:-1]
         self.affine = self._get_rsns().affine
@@ -158,7 +163,10 @@ def main(args):
 
     # Load data
     logging.info(f"Loading Melodic Data from {args.inputdir}")
-    melodic_data = MelodicData(args.inputdir, args.labelfile)
+    if args.no_label:
+        melodic_data = MelodicData(args.inputdir, None)
+    else:
+        melodic_data = MelodicData(args.inputdir, args.labelfile)
 
     # Parse user inputs
     n_components = min(args.n_components, len(melodic_data.signal.T))
@@ -236,6 +244,9 @@ def _cli_parser():
 
     parser.add_argument('--force', action='store_true',
                         help='Overwrite files.')
+
+    parser.add_argument('--no-label', action='store_true',
+                        help='Consider all components to be signals.')
 
     return parser
 
