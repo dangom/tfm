@@ -18,10 +18,12 @@ warnings.filterwarnings("error")
 
 class MelodicData:
 
-    def __init__(self, directory, labelfile='hand_classification.txt'):
+    def __init__(self, directory, labelfile='hand_classification.txt',
+                 from_dr=False):
 
+        self.from_dr = from_dr
         self.directory = directory
-        self.mix = self.get_melodic_mix(directory)
+        self.mix = self.get_melodic_mix(directory, from_dr)
         self.n_components = self.mix.shape[1]
 
         if labelfile is not None:
@@ -30,16 +32,18 @@ class MelodicData:
             self.labels = list(range(self.n_components))
 
         self.signal = self.mix[:, self.labels]
-        self.shape = self._get_rsns().shape[:-1]
-        self.affine = self._get_rsns().affine
+        self.shape = self._get_rsns(from_dr).shape[:-1]
+        self.affine = self._get_rsns(from_dr).affine
 
         self.explainedvar = self.get_explained_variance(directory)
-        self.explainedvar = self.explainedvar[self.labels]
+        if not isinstance(self.explainedvar, int):
+            self.explainedvar = self.explainedvar[self.labels]
 
-    def get_melodic_mix(self, directory):
+    def get_melodic_mix(self, directory, from_dr=False):
         """Read in the spatial melodic mix.
         """
-        mixfile = os.path.join(directory, 'melodic_mix')
+        fname = 'melodic_mix' if not from_dr else 'dr_stage1_subject00000.txt'
+        mixfile = os.path.join(directory, fname)
         mix = np.loadtxt(mixfile)
         return mix
 
@@ -47,7 +51,11 @@ class MelodicData:
         """Read in the melodic_ICstats file
         """
         mixstats = os.path.join(directory, 'melodic_ICstats')
-        stats = np.loadtxt(mixstats)[:, 1]
+        if os.path.exists(mixstats):
+            stats = np.loadtxt(mixstats)[:, 1]
+            stats = stats[:, None]
+        else:
+            stats = 1
         return stats
 
     def get_labels(self, directory, labelfile):
@@ -60,20 +68,24 @@ class MelodicData:
         return [x for x in range(self.n_components)
                 if x not in noise]
 
-    def _get_rsns(self):
+    def _get_rsns(self, from_dr=False):
         """Load melodic IC from directory.
         Note that we use the original ones, i.e.,
         melodic_oIC and not melodic_IC
         """
+        if from_dr:
+            fname = 'dr_stage2_subject00000.nii.gz'
+        else:
+            fname = 'melodic_oIC.nii.gz'
         return nib.load(os.path.join(self.directory,
-                                     'melodic_oIC.nii.gz'))
+                                     fname))
 
     @property
     def rsns(self):
         """
         Only returns signal components from melodic IC.
         """
-        rsns = self._get_rsns()
+        rsns = self._get_rsns(self.from_dr)
         temporal = rsns.shape[-1]
         data = np.reshape(rsns.get_data(), (-1, temporal))[:, self.labels]
         return data
@@ -118,7 +130,7 @@ class TFM:
                 node_weights *= -1
 
         # Now order the components according to the RMS of the mixing matrix.
-        weighted_mixing = melodic_data.explainedvar[:, None] * mixing
+        weighted_mixing = melodic_data.explainedvar * mixing
         rms = np.sum(np.square(weighted_mixing), 0)
         order = np.argsort(rms)[::-1]  # Decreasing order.
 
@@ -163,10 +175,13 @@ def main(args):
 
     # Load data
     logging.info(f"Loading Melodic Data from {args.inputdir}")
+
+    # Assume from dual_regression if directory name does not end in .ica
+    from_dr = (not args.inputdir.endswith('.ica'))
     if args.no_label:
-        melodic_data = MelodicData(args.inputdir, None)
+        melodic_data = MelodicData(args.inputdir, None, from_dr)
     else:
-        melodic_data = MelodicData(args.inputdir, args.labelfile)
+        melodic_data = MelodicData(args.inputdir, args.labelfile, from_dr)
 
     # Parse user inputs
     n_components = min(args.n_components, len(melodic_data.signal.T))
