@@ -16,14 +16,15 @@ is that scikit-learn does not return A, W and S the same way.
 
 """
 import os
+import glob
 import numpy as np
 from pycar.raicar import RAICAR
 
-from .tfm import TFM, MelodicData
+from tfm import TFM, MelodicData
 
 
 def ica_method(x, nSources=10, **kwargs):
-    tfm_ica = TFM(nSources, tol=1e-5)
+    tfm_ica = TFM(nSources, tol=1e-5, fun='logcosh')
     sources = tfm_ica.unmix(x)
     mixing = tfm_ica.ica.mixing_
     unmixing = tfm_ica.ica.components_
@@ -39,12 +40,15 @@ def main():
 
 directories = glob.glob('/project/3015046.07/derivatives/resting-state/fmriprep/sub-*/ses-*/func/sub-*_ses-*_task-rest_run-*_bold_space-MNI152NLin2009cAsym_preproc_highpass100.ica')
 
+dirgroups = glob.glob('/project/3015046.07/derivatives/resting-state/subject-concat-ica/sub-*_group.ica')
 
-def run(ncomponents):
-    for directory in directories:
+
+def run(index, ncomponents):
+    for directory in dirgroups[index:index+1]:
         os.chdir(directory)
         raicar = RAICAR(projDirectory='raicar',
                         nSignals=ncomponents, icaMethod=ica_method)
         melodic_data = MelodicData(directory)
-        raicar.clean_project()
+        # raicar.clean_project()
         raicar.runall(melodic_data.signal)
+        return raicar
