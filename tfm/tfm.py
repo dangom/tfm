@@ -17,13 +17,31 @@ import warnings
 
 import nibabel as nib
 from nilearn.input_data import NiftiLabelsMasker
-from nilearn import image, plotting
 import numpy as np
+import pandas as pd
 from sklearn.decomposition import FastICA
 
-# warnings.filterwarnings("error")
-
+# The MIST 444 parcellation seems like a good trade-off between number of
+# parcels and quality of signal. Too many parcels, bad signal. Too few parcels,
+# much too averaged signal.
 ATLAS = '/project/3015046.07/atlas/Parcellations/MIST_444.nii.gz'
+ATLAS_HIERARCHY = '/project/3015046.07/atlas/Hierarchy/MIST_PARCEL_ORDER.csv'
+ATLAS_PARCEL_INFO_444 = '/project/3015046.07/atlas/Hierarchy/MIST_444.csv'
+# The parcel info 20 is for grouping the 444 parcels into networks.
+ATLAS_PARCEL_INFO_12 = '/project/3015046.07/atlas/Parcel_Information/MIST_12.csv'
+
+
+# TODO: Perhaps return a dataframe with original roi, target roi and labels makes more sense.
+def atlas_parcel_labels(nrois, target_res=12):
+    hierarchy = pd.read_csv(ATLAS_HIERARCHY, delimiter=',')
+    roi_ids = np.unique(hierarchy[f's{nrois}'].values)
+    rois_parent = [np.unique(hierarchy[f's{target_res}'][hierarchy[f's{nrois}'] == x]) for x in roi_ids]
+    # Because all values are the same, take the first one. Use tolist() to get
+    # a single flat list in the end.
+    rois_parent = [x.tolist()[0] for x in rois_parent]
+    labels = pd.read_csv(ATLAS_PARCEL_INFO_12, delimiter=';')
+    parent_labels = [labels[labels['roi'] == x]['name'].values.tolist()[0] for x in rois_parent]
+    return rois_parent, parent_labels
 
 
 class MelodicData:
@@ -51,6 +69,7 @@ class MelodicData:
 
     def get_melodic_mix(self, directory, from_dr=False):
         """Read in the spatial melodic mix.
+        From dual regression, the dr_stage1 file contains the timecourses.
         """
         fname = 'melodic_mix' if not from_dr else 'dr_stage1_subject00000.txt'
         mixfile = os.path.join(directory, fname)
