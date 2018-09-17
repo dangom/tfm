@@ -127,10 +127,17 @@ class TFM:
         rsns = melodic_data.rsns
         # Use a copy so we don't mutate the internals of FastICA
         mixing = self.ica.mixing_.copy()
+
         tfm = np.dot(rsns, mixing)
+
+        # Mask outside of brain with NaN
+        tfm[rsns.max(axis=-1) == 0] = np.nan
+
         # Demean and variance normalize *EACH COMPONENT INDIVIDUALLY.*
-        tfm -= np.mean(tfm, axis=0)
-        tfm /= np.std(tfm, axis=0)
+        tfm -= np.nanmean(tfm, axis=0)
+        tfm /= np.nanstd(tfm, axis=0)
+
+        tfm = np.nan_to_num(tfm)
 
         # Because ICA orientation is arbitrary, make it such that largest value
         # is always positive.
