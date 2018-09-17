@@ -23,7 +23,7 @@ from sklearn.decomposition import FastICA
 
 # warnings.filterwarnings("error")
 
-ATLAS = '/project/3015046.07/atlas/Parcellations/MIST_ROI.nii.gz'
+ATLAS = '/project/3015046.07/atlas/Parcellations/MIST_444.nii.gz'
 
 
 class MelodicData:
@@ -101,6 +101,41 @@ class MelodicData:
         return data
 
 
+class DenoisedData():
+
+    def __init__(self, path, atlas=None):
+        """
+        Wrapper class for dataset so that it offers the same methods as
+        the MelodicData class.
+        """
+        if atlas is None:
+            atlas = ATLAS
+
+        atlasnifti = nib.load(atlas)
+        atlasdata = nib.load(atlas).get_data()
+        nrois = int(atlasdata.max())
+        rsns = np.stack([atlasdata.copy() for i in range(nrois)],
+                        axis=-1)
+        for index, volume in enumerate(np.rollaxis(rsns, -1)):
+            # The idea of querying for index + 1 is because the
+            # first map is the "non-relevant" non-brain area we want to skip.
+            volume[atlasdata == index + 1] = 1
+            volume[atlasdata != index + 1] = 0
+        rsns = np.reshape(rsns, (-1, nrois))
+
+        assert rsns.max() == 1
+        assert rsns.min() == 0
+
+        masker = NiftiLabelsMasker(labels_img=atlas, standardize=True)
+        signal = masker.fit_transform(path)
+
+        self.shape = atlasnifti.shape[:3]
+        self.affine = atlasnifti.affine
+        self.rsns = rsns
+        self.signal = signal
+        self.explainedvar = 1
+
+
 class TFM:
 
     # Deflation takes much longer, but converges more often.
@@ -159,54 +194,6 @@ class TFM:
                                           (*melodic_data.shape, -1)),
                                melodic_data.affine), sources
 
-    def fit_transform_atlas(self, fmri_series, atlas=None, nrois=None):
-        """Take a 4D FMRI Dataset and unmix it within parcels of an atlas.
-        """
-        if atlas is None:
-            atlas = ATLAS
-            nrois = 210
-
-        masker = NiftiLabelsMasker(labels_img=atlas, standardize=True)
-
-        atlasdata = nib.load(atlas).get_data()
-        rsns = np.stack([atlasdata.copy() for i in range(nrois)],
-                        axis=-1)
-        for index, volume in enumerate(np.rollaxis(rsns, -1)):
-            volume[atlasdata == index + 1] = 1
-            volume[atlasdata != index + 1] = 0
-        rsns = np.reshape(rsns, (-1, nrois))
-
-        signal = masker.fit_transform(fmri_series)
-        sources = self.unmix(signal)
-        mixing = self.ica.mixing_.copy()
-
-        tfm = np.dot(rsns, mixing)
-        # Demean and variance normalize *EACH COMPONENT INDIVIDUALLY.*
-        tfm -= np.mean(tfm, axis=0)
-        tfm /= np.std(tfm, axis=0)
-
-        # Because ICA orientation is arbitrary, make it such that largest value
-        # is always positive.
-        for spatial_map, node_weights in zip(tfm.T, mixing.T):
-            if spatial_map[np.abs(spatial_map).argmax()] < 0:
-                spatial_map *= -1
-                node_weights *= -1
-
-        # Now order the components according to the RMS of the mixing matrix.
-        rms = np.sum(np.square(mixing), 0)
-        order = np.argsort(rms)[::-1]  # Decreasing order.
-
-        self.reordered_mixing = mixing[:, order]
-        tfm = tfm[:, order]
-        sources = sources[:, order]
-
-        data = nib.load(atlas)
-        shape = data.shape[:3]
-        affine = data.affine
-        return nib.Nifti1Image(np.reshape(tfm,
-                                          (*shape, -1)),
-                               affine), sources
-
 
 def main(args):
 
@@ -217,7 +204,7 @@ def main(args):
     if os.path.isabs(args.outputdir):
         outdir = args.outputdir
     else:
-        outdir = os.path.join(args.inputdir, args.outputdir)
+        outdir = os.path.join(os.path.dirname(args.inputdir), args.outputdir)
 
     def out(name):
         return os.path.join(outdir, name)
@@ -241,12 +228,16 @@ def main(args):
     # Load data
     logging.info(f"Loading Melodic Data from {args.inputdir}")
 
-    # Assume from dual_regression if directory name does not end in .ica
-    from_dr = (not os.path.abspath(args.inputdir).endswith('.ica'))
-    if args.no_label:
-        melodic_data = MelodicData(args.inputdir, None, from_dr)
+    # If inputdir is a directory:
+    if os.path.isdir(args.inputdir):
+        # Assume from dual_regression if directory name does not end in .ica
+        from_dr = (not os.path.abspath(args.inputdir).endswith('.ica'))
+        if args.no_label:
+            melodic_data = MelodicData(args.inputdir, None, from_dr)
+        else:
+            melodic_data = MelodicData(args.inputdir, args.labelfile, from_dr)
     else:
-        melodic_data = MelodicData(args.inputdir, args.labelfile, from_dr)
+        melodic_data = DenoisedData(args.inputdir)
 
     # Parse user inputs
     n_components = min(args.n_components, len(melodic_data.signal.T))
@@ -259,6 +250,7 @@ def main(args):
     try_counter = 1
     algorithm = 'parallel'
     while True:
+        warnings.filterwarnings("error")
         try:
             # Try using the parallel algorithm because it's faster.
             tfm_ica = TFM(n_components=n_components,
@@ -278,6 +270,8 @@ def main(args):
         else:
             logging.info(f"ICA successful after {try_counter} attempts.")
             break
+
+    warnings.resetwarnings()
 
     # Save outputs
     logging.info(f"Saving outputs to directory {outdir}")
@@ -301,7 +295,7 @@ def _cli_parser():
 
     # output directory
     parser.add_argument('inputdir', type=str,
-                        help='Input Melodic Directory')
+                        help='Input directory with melodic data, or input file for atlas-based tICA.')
 
     parser.add_argument('-o', '--outputdir', type=str, default='tfm.ica',
                         help='Directory where results will be stored. Def: tfm.ica')
@@ -327,6 +321,7 @@ def _cli_parser():
 
     parser.add_argument('--no-label', action='store_true',
                         help='Consider all components to be signals.')
+
 
     return parser
 
