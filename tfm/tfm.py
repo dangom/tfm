@@ -111,9 +111,12 @@ class DenoisedData():
         if atlas is None:
             atlas = ATLAS
 
+        masker = NiftiLabelsMasker(labels_img=atlas, standardize=True)
+        signal = masker.fit_transform(path)
+
         atlasnifti = nib.load(atlas)
         atlasdata = nib.load(atlas).get_data()
-        nrois = int(atlasdata.max())
+        nrois = signal.shape[-1]
         rsns = np.stack([atlasdata.copy() for i in range(nrois)],
                         axis=-1)
         for index, volume in enumerate(np.rollaxis(rsns, -1)):
@@ -125,9 +128,6 @@ class DenoisedData():
 
         assert rsns.max() == 1
         assert rsns.min() == 0
-
-        masker = NiftiLabelsMasker(labels_img=atlas, standardize=True)
-        signal = masker.fit_transform(path)
 
         self.shape = atlasnifti.shape[:3]
         self.affine = atlasnifti.affine
