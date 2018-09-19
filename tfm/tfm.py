@@ -40,14 +40,60 @@ def atlas_parcel_labels(nrois, target_res=12):
     # a single flat list in the end.
     rois_parent = [x.tolist()[0] for x in rois_parent]
     labels = pd.read_csv(ATLAS_PARCEL_INFO_12, delimiter=';')
-    parent_labels = [labels[labels['roi'] == x]['name'].values.tolist()[0] for x in rois_parent]
-    return rois_parent, parent_labels
+    parent_names = [labels[labels['roi'] == x]['name'].values.tolist()[0] for x in rois_parent]
+    parent_labels = [labels[labels['roi'] == x]['label'].values.tolist()[0] for x in rois_parent]
+    return rois_parent, parent_names, parent_labels
+
+
+def labeled_unmix(unmix):
+    """unmix is the filename of a melodic_unmix matrix, i.e., the "core" tICA mixing matrix.
+    This routine takes the filename and returns a pandas DataFrame with columns:
+    label, name, roi (numbered parcels), tfm (numbered tfms), coefficient (roi x tfm entry),
+    abs_coefficient (np.abs(coefficient)).
+    """
+    unmix_df = pd.DataFrame(np.loadtxt(unmix))
+    rois_parent, parent_names, parent_labels = atlas_parcel_labels(len(unmix_df))
+    unmix_df['name'] = parent_names
+    unmix_df['label'] = parent_labels
+    unmix_df = unmix_df.reset_index().melt(['index', 'label', 'name'])
+    unmix_df = unmix_df.rename(columns={'index':'roi',
+                                        'variable': 'tfm',
+                                        'value': 'coefficient'})
+    unmix_df['abs_coefficient'] = unmix_df['coefficient'].abs()
+    return unmix_df
+
+
+def heatmap(filename, ax):
+    """Plot the core TFM mixing matrix as a heatmap, which ROIs contributions
+    aggregated by the 12 MIST functional networks.
+    """
+    data_raw = np.abs(pd.DataFrame(np.loadtxt(filename)))
+    _, parent_names, _ = atlas_parcel_labels(len(data_raw))
+    data_raw['name'] = parent_names
+    data = data_raw.groupby('name').aggregate(sum)
+    # Normalise each TFM such that the contribution of all networks sums to 100%
+    for column in data:
+        data[column] = 100*data[column]/np.sum(data[column])
+
+    g = sns.heatmap(data, yticklabels=1,
+                    annot=True, fmt=".1f", linewidth=.5, ax=ax, vmin=0, vmax=25)
+    # Slightly reduce fontsize.
+    ax.set_yticklabels(ax.get_yticklabels(), fontsize=8)
+    return g
 
 
 class MelodicData:
 
     def __init__(self, directory, labelfile='hand_classification.txt',
                  from_dr=False):
+        """
+        directory: An .ica or dual_regression directory.
+        labelfile: An IC classification (signal vs noise) file. The file
+        is expected to be formatted just like outputs from FSLEYES.
+        from_dr: Whether we are reading from a dual_regression directory,
+        instead of a melodic directory. This flag could be inferred by looking
+        at the filenames output from dr, but it's here for explicitness.
+        """
 
         self.from_dr = from_dr
         self.directory = directory
