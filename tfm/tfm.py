@@ -26,6 +26,17 @@ from nilearn.input_data import NiftiLabelsMasker
 import numpy as np
 import pandas as pd
 from sklearn.decomposition import FastICA
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+try:
+    from . import __version__
+except ImportError:
+    # If congrads is called as a simple script and not a package, we cannot
+    # guarantee that it was installed properly, or that the file wasn't
+    # modified prior to usage. Not good practice for reproducible results.
+    __version__ = '*VERSION UNKNOWN*'
+
 
 
 # The MIST 444 parcellation seems like a good trade-off between number of
@@ -334,6 +345,7 @@ def main(args):
                             logging.FileHandler(out("tfm.log"), mode='w'),
                             logging.StreamHandler()
                         ])
+    logging.info(f"Welcome to TFM version {__version__}")
     logging.info(sys.argv)
 
 
@@ -398,6 +410,13 @@ def main(args):
     np.savetxt(out('melodic_mix'), sources, delimiter='  ', fmt='%.6f')
     np.savetxt(out('melodic_FTmix'), np.abs(np.fft.rfft(sources, axis=0)),
                delimiter='  ', fmt='%.6f')
+
+    # Save a heatmap of melodic unmix.
+    f, ax = plt.subplots(figsize=plt.figaspect(1/2))
+    g = heatmap(out('melodic_unmix'), ax)
+    plt.tight_layout()
+    f.savefig(out('melodic_unmix.png'))
+
 
 
 def run_tfm():
