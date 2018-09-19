@@ -7,12 +7,18 @@ of spatial ICA, and then remix the spatial maps to generate
 
 Smith 2012
 Temporally-independent functional modes of spontaneous brain activity.
+
+TODO:
+1. Save logs to a file. Document inputs to command and TFM version.
+2. Save a report with images from TFMs, their timecourses and (possibly)
+labels.
 """
 
 import argparse
 import ast
 import logging
 import os
+import sys
 import warnings
 
 import nibabel as nib
@@ -20,6 +26,7 @@ from nilearn.input_data import NiftiLabelsMasker
 import numpy as np
 import pandas as pd
 from sklearn.decomposition import FastICA
+
 
 # The MIST 444 parcellation seems like a good trade-off between number of
 # parcels and quality of signal. Too many parcels, bad signal. Too few parcels,
@@ -33,6 +40,14 @@ ATLAS_PARCEL_INFO_12 = '/project/3015046.07/atlas/Parcel_Information/MIST_12.csv
 
 # TODO: Perhaps return a dataframe with original roi, target roi and labels makes more sense.
 def atlas_parcel_labels(nrois, target_res=12):
+    """This function takes two integer numbers, nrois and target_res. nrois
+    indicates the number of MIST parcels used for an atlas based tICA
+    decomposition, and target_res indicates the number of MIST parcels (higher
+    in the MIST hierarchy) that label each of the original nrois.
+
+    The idea is to group ROIs into higher level networks only for labelling and
+    summarizing.
+    """
     hierarchy = pd.read_csv(ATLAS_HIERARCHY, delimiter=',')
     roi_ids = np.unique(hierarchy[f's{nrois}'].values)
     rois_parent = [np.unique(hierarchy[f's{target_res}'][hierarchy[f's{nrois}'] == x]) for x in roi_ids]
@@ -123,7 +138,7 @@ class MelodicData:
         return mix
 
     def get_explained_variance(self, directory):
-        """Read in the melodic_ICstats file
+        """Read in the melodic_ICstats file.
         """
         mixstats = os.path.join(directory, 'melodic_ICstats')
         if os.path.exists(mixstats):
@@ -134,19 +149,21 @@ class MelodicData:
         return stats
 
     def get_labels(self, directory, labelfile):
-        """Parse the classification file.
+        """Parse the IC classification file.
         """
         labelfile = os.path.join(directory, labelfile)
         with open(labelfile, 'r') as f:
             last_line = [line for line in f][-1]
-        noise = [x - 1 for x in ast.literal_eval(last_line)]
+
+        offset = 1
+        noise = [x - offset for x in ast.literal_eval(last_line)]
         return [x for x in range(self.n_components)
                 if x not in noise]
 
     def _get_rsns(self, from_dr=False):
         """Load melodic IC from directory.
         Note that we use the original ones, i.e.,
-        melodic_oIC and not melodic_IC
+        melodic_oIC and not melodic_IC.
         """
         if from_dr:
             fname = 'dr_stage2_subject00000.nii.gz'
@@ -158,7 +175,8 @@ class MelodicData:
     @property
     def rsns(self):
         """
-        Only returns signal components from melodic IC.
+        Only returns signal components from melodic IC, i.e., filter
+        out noise components according to what is in self.labels.
         """
         rsns = self._get_rsns(self.from_dr)
         temporal = rsns.shape[-1]
@@ -171,7 +189,9 @@ class DenoisedData():
     def __init__(self, path, atlas=None):
         """
         Wrapper class for dataset so that it offers the same methods as
-        the MelodicData class.
+        the MelodicData class. Instead of taking a path to a directory,
+        it takes a path to a file directly and computes the TFMs based
+        on an ATLAS.
         """
         if atlas is None:
             atlas = ATLAS
@@ -187,12 +207,16 @@ class DenoisedData():
         for index, volume in enumerate(np.rollaxis(rsns, -1)):
             # The idea of querying for index + 1 is because the
             # first map is the "non-relevant" non-brain area we want to skip.
-            volume[atlasdata == index + 1] = 1
-            volume[atlasdata != index + 1] = 0
+            offset = 1
+            volume[atlasdata == index + offset] = 1
+            volume[atlasdata != index + offset] = 0
+
+        # Making rsns into a 2D vector allows us to have a closer programming
+        # representation of the TFM matrix model, where we multiply
+        # two matrices to obtain the "TFMs".
         rsns = np.reshape(rsns, (-1, nrois))
 
-        assert rsns.max() == 1
-        assert rsns.min() == 0
+        assert (rsns.max() == 1 and rsns.min() == 0)
 
         self.shape = atlasnifti.shape[:3]
         self.affine = atlasnifti.affine
@@ -202,6 +226,8 @@ class DenoisedData():
 
 
 class TFM:
+    """Wrapper class for FastICA and the "TFM" model data.
+    """
 
     # Deflation takes much longer, but converges more often.
     def __init__(self, n_components=30, max_iter=20_000, tol=0.00001,
@@ -215,19 +241,29 @@ class TFM:
 
     def unmix(self, signal):
         """Call FastICA on the signal components.
-        This is a separate function so we can call it from raicar.
+        This is a separate function so we can call it from, for example,
+        the RAICAR module to verify the reproducibility of the obtained
+        timeseries.
         """
         sources = self.ica.fit_transform(signal)
         return sources
 
-    def fit_transform_melodic(self, melodic_data):
+    def fit_transform(self, melodic_data):
         """Take a MelodicData object and unmix it.
+        MelodicData does not need to be a result from Melodic at all,
+        as long as its structure contains the following four elements:
+        1. signal - 2D matrix of size timecourses vs ROIs.
+        2. rsns - 2D matrix of size voxels x RSNs.
+        3. shape - The original 3D dimensions of signal.
+        4. affine - The original affine matrix of the rsns.
         """
         sources = self.unmix(melodic_data.signal)
         rsns = melodic_data.rsns
-        # Use a copy so we don't mutate the internals of FastICA
+        # Use a copy so we don't mutate the internals of FastICA later
+        # when reordering the TFM components.
         mixing = self.ica.mixing_.copy()
 
+        # The TFM matrix multiplication.
         tfm = np.dot(rsns, mixing)
 
         # Mask outside of brain with NaN
@@ -261,10 +297,10 @@ class TFM:
 
 
 def main(args):
-
-    logging.basicConfig(format="%(asctime)s [%(levelname)s]: %(message)s",
-                        datefmt="%Y-%m-%d %H:%M:%S",
-                        level=logging.INFO)
+    """Main TFM routine. Logs some information, checks user inputs, reads
+    in the data, orchestrates the tICA decomposition and saves outputs to
+    desired locations.
+    """
 
     if os.path.isabs(args.outputdir):
         outdir = args.outputdir
@@ -290,8 +326,19 @@ def main(args):
         print(out('melodic_mix'))
         return
 
+    # Start logging
+    logging.basicConfig(format="%(asctime)s [%(levelname)s]: %(message)s",
+                        datefmt="%Y-%m-%d %H:%M:%S",
+                        level=logging.INFO,
+                        handlers=[
+                            logging.FileHandler(out("tfm.log"), mode='w'),
+                            logging.StreamHandler()
+                        ])
+    logging.info(sys.argv)
+
+
     # Load data
-    logging.info(f"Loading Melodic Data from {args.inputdir}")
+    logging.info(f"Loading data from {args.inputdir}")
 
     # If inputdir is a directory:
     if os.path.isdir(args.inputdir):
@@ -314,6 +361,11 @@ def main(args):
     logging.info("Computing TFMs")
     try_counter = 1
     algorithm = 'parallel'
+
+    # The following loop will try unmixing the signals using a parallel
+    # approach up to 5 times (in case the tICA does not converge.) In case
+    # it doesn't converge in 5 attempts, it'll switch to the deflation algo,
+    # which is much more stable.
     while True:
         warnings.filterwarnings("error")
         try:
@@ -323,7 +375,7 @@ def main(args):
                           tol=tolerance,
                           algorithm=algorithm,
                           random_state=np.random.randint(0, 2**32 - 1))
-            tfms, sources = tfm_ica.fit_transform_melodic(melodic_data)
+            tfms, sources = tfm_ica.fit_transform(melodic_data)
         except UserWarning:
             try_counter += 1
             if try_counter > 5:
@@ -349,6 +401,8 @@ def main(args):
 
 
 def run_tfm():
+    """Wrapper to be used as entry point for a command line tool.
+    """
 
     parser = _cli_parser()
     args = parser.parse_args()
@@ -356,6 +410,8 @@ def run_tfm():
 
 
 def _cli_parser():
+    """Argument parser for run_tfm.
+    """
     parser = argparse.ArgumentParser(description=__doc__)
 
     # output directory
