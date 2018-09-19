@@ -32,11 +32,10 @@ import matplotlib.pyplot as plt
 try:
     from . import __version__
 except ImportError:
-    # If congrads is called as a simple script and not a package, we cannot
+    # If tfm is called as a simple script and not a package, we cannot
     # guarantee that it was installed properly, or that the file wasn't
     # modified prior to usage. Not good practice for reproducible results.
     __version__ = '*VERSION UNKNOWN*'
-
 
 
 # The MIST 444 parcellation seems like a good trade-off between number of
