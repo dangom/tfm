@@ -13,7 +13,8 @@ with open('tfm/__init__.py', 'r') as f:
 with open('README.rst', 'r', encoding='utf-8') as f:
     readme = f.read()
 
-REQUIRES = ['nibabel', 'numpy', 'sklearn']
+REQUIRES = ['nibabel', 'numpy', 'sklearn',
+            'seaborn', 'matplotlib', 'pandas']
 
 setup(
     name='tfm',
