@@ -1,0 +1,43 @@
+#+TITLE: Temporal Functional Modes
+
+Code to compute Temporal Functional Modes.
+In other words, run a temporal ICA on the timeseries of spatial ICA, and then remix the spatial maps to generate 'modes' of brain activity. For more information take a look at:
+
+Temporally-independent functional modes of spontaneous brain activity (Smith et al. 2012).
+
+Temporal Functional Modes are actually nothing but temporal ICA run on parcels of the brain, instead of voxels directly. Provided there are enough timepoints for tICA to converge, there is actually no difference in running the TFM algorithm directly on signals obtained from an atlas based parcellation, instead of a spatial ICA parcellation (as suggested in the original TFM contribution). Therefore, this repository also ships with the MIST parcellation atlas for directly application of temporal ICA for fMRI data.
+
+
+* Installation
+
+TFM only supports python 3.6+ (because of f-strings). Either clone the project and install it by running
+
+#+BEGIN_SRC sh
+    $ python setup.py install
+#+END_SRC
+
+or install it directly with pip by calling:
+
+#+BEGIN_SRC sh
+    $ pip install git+https://github.com/dangom/tfm.git
+#+END_SRC
+
+
+* Usage
+
+TFM provides a command line tool called =tfm=, which allows one to configure the tICA algorithm, as well as inputs and outputs. In essence, users can pass a demeaned and denoised fMRI dataset directly as an input, in which case an atlas based parcellation will take place. Otherwise, passing an FSL MELODIC output directory (with melodic_mix, melodic_oIC.nii.gz and melodic_unmix files) will compute TFMs as described in Smith 2012.
+
+Output results of TFM are saved with names following the MELODIC convention, only so as to allow usage and visualization using FSLEYES.
+
+* Disclaimer
+
+Some features of TFM (such as the extra raicar submodule) are under development, considered experimental or not fully tested. Use at your own risk.
+
+* License
+
+tfm is distributed under the terms of both
+
+- [[https://choosealicense.com/licenses/mit][MIT License]]
+- [[https://choosealicense.com/licenses/apache-2.0][Apache License,  Version 2.0]]
+
+at your option.
