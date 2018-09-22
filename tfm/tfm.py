@@ -21,13 +21,14 @@ import os
 import sys
 import warnings
 
+import matplotlib.pyplot as plt
 import nibabel as nib
-from nilearn.input_data import NiftiLabelsMasker
 import numpy as np
 import pandas as pd
-from sklearn.decomposition import FastICA
 import seaborn as sns
-import matplotlib.pyplot as plt
+from sklearn.decomposition import FastICA
+
+from nilearn.input_data import NiftiLabelsMasker
 
 try:
     from . import __version__
