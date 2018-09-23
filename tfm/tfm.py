@@ -30,6 +30,8 @@ from sklearn.decomposition import FastICA
 
 from nilearn.input_data import NiftiLabelsMasker
 
+from . import __version__
+
 MIST_ROOT = op.join(op.dirname(__file__), 'mistatlas')
 MIST_ATLAS_444 = op.join(MIST_ROOT, 'Parcellations/MIST_444.nii.gz')
 MIST_HIERARCHY = op.join(MIST_ROOT, 'Hierarchy/MIST_PARCEL_ORDER.csv')
