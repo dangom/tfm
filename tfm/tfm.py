@@ -108,141 +108,131 @@ def heatmap(filename, ax):
     return g
 
 
-class MelodicData:
+def parse_melodic_labelfile(self, labelfile):
+    """Utility method to parse the IC classification file, as per
+    the conventions of FIX and FSLEYES.
+    """
+    with open(labelfile, 'r') as f:
+        lines = [line for line in f]
+        penultimate_line, last_line = lines[-2:]
 
-    def __init__(self, directory, labelfile='hand_classification.txt',
-                 from_dr=False):
-        """
-        directory: An .ica or dual_regression directory.
-        labelfile: An IC classification (signal vs noise) file. The file
-        is expected to be formatted just like outputs from FSLEYES.
-        from_dr: Whether we are reading from a dual_regression directory,
-        instead of a melodic directory. This flag could be inferred by looking
-        at the filenames output from dr, but it's here for explicitness.
-        """
+    n_components = int(penultimate_line.split(',')[0])
 
-        self.from_dr = from_dr
-        self.directory = directory
-        self.mix = self.get_melodic_mix(directory, from_dr)
-        self.n_components = self.mix.shape[1]
+    # In the labelfile, the first component is numbered 1
+    offset = 1
+    noise = [x - offset for x in ast.literal_eval(last_line)]
+    return [x for x in range(n_components) if x not in noise]
 
-        if labelfile is not None:
-            self.labels = self.get_labels(directory, labelfile)
-        else:
-            self.labels = list(range(self.n_components))
 
-        self.signal = self.mix[:, self.labels]
-        self.shape = self._get_rsns(from_dr).shape[:-1]
-        self.affine = self._get_rsns(from_dr).affine
+def atlas_roitovol(atlas, nrois):
+    """Some atlases are 3D files wherein each value represents
+    a separate ROI. For example, 0 for non-brain, 1 for CSF, 2 for
+    gray matter, etc.
+    This function takes such a 3D atlas an returns it in 4D format,
+    where each volume contains a single ROI encoded as a binary mask.
 
-        self.explainedvar = self.get_explained_variance(directory)
-        if not isinstance(self.explainedvar, int):
-            self.explainedvar = self.explainedvar[self.labels]
+    TODO: The number of ROIS can easily be inferred from the data
+    itself, but int(max(atlas.get_data())) fails for a small subset
+    of atlas tested.
+    """
+    atlasnifti = nib.load(atlas)
+    atlasdata = atlasnifti.get_data()
+    maps = np.stack([atlasdata.copy() for i in range(nrois)],
+                    axis=-1)
 
-    def get_melodic_mix(self, directory, from_dr=False):
-        """Read in the spatial melodic mix.
-        From dual regression, the dr_stage1 file contains the timecourses.
-        """
-        fname = 'melodic_mix' if not from_dr else 'dr_stage1_subject00000.txt'
-        mixfile = os.path.join(directory, fname)
-        mix = np.loadtxt(mixfile)
-        return mix
-
-    def get_explained_variance(self, directory):
-        """Read in the melodic_ICstats file.
-        """
-        mixstats = os.path.join(directory, 'melodic_ICstats')
-        if os.path.exists(mixstats):
-            stats = np.loadtxt(mixstats)[:, 1]
-            stats = stats[:, None]
-        else:
-            stats = 1
-        return stats
-
-    def get_labels(self, directory, labelfile):
-        """Parse the IC classification file.
-        """
-        labelfile = os.path.join(directory, labelfile)
-        with open(labelfile, 'r') as f:
-            last_line = [line for line in f][-1]
-
+    # Loop through the last (4th) dimension of maps.
+    for index, volume in enumerate(np.rollaxis(maps, -1)):
+        # The idea of querying for index + 1 is because the
+        # first map is the "non-relevant" non-brain area we want to skip.
         offset = 1
-        noise = [x - offset for x in ast.literal_eval(last_line)]
-        return [x for x in range(self.n_components)
-                if x not in noise]
+        volume[atlasdata == index + offset] = 1
+        volume[atlasdata != index + offset] = 0
 
-    def _get_rsns(self, from_dr=False):
-        """Load melodic IC from directory.
-        Note that we use the original ones, i.e.,
-        melodic_oIC and not melodic_IC.
+    assert (maps.max() == 1 and maps.min() == 0)
+
+    return nib.Nifti1Image(maps, atlasnifti.affine)
+
+
+class Data:
+    """In the TFM / temporal ICA model, the input data to be decomposed
+    consists of a matrix of dimensions n_timepoints x n_mixtures. Mixtures is
+    an abstract concept here, but when talking about fMRI we think of mixtures
+    as voxels, or ROIs or even resting state networks. In addition to the input
+    data matrix, the TFM model also requires a set of spatial maps as inputs,
+    where each spatial map is associated to one of the n_mixtures mentioned
+    about. The spatial maps are thus matrices of dimensions n_voxels x
+    n_mixtures.
+    """
+    def __init__(self, timeseries, maps):
+        """Timeseries is a numpy array.
+        Maps is a nibabel Nifti1Image object.
         """
-        if from_dr:
-            fname = 'dr_stage2_subject00000.nii.gz'
-        else:
-            fname = 'melodic_oIC.nii.gz'
-        return nib.load(os.path.join(self.directory,
-                                     fname))
+        assert timeseries.shape[-1] == maps.shape[-1]
+        self.timeseries = timeseries
+        self.maps = maps
+
+        # here for compatibility with previous versions
+        self.shape = maps.shape[:-1]
+        self.affine = maps.affine
+        self.explainedvar = 1
 
     @property
     def rsns(self):
-        """
-        Only returns signal components from melodic IC, i.e., filter
-        out noise components according to what is in self.labels.
-        """
-        rsns = self._get_rsns(self.from_dr)
-        temporal = rsns.shape[-1]
-        data = np.reshape(rsns.get_data(), (-1, temporal))[:, self.labels]
+        temporal = self.maps.shape[-1]
+        data = np.reshape(self.maps.get_data(), (-1, temporal))
         return data
 
+    @property
+    def signal(self):
+        return self.timeseries
 
-class DenoisedData():
+    @classmethod
+    def from_melodic(cls, icadir, labelfile=None):
+        """Load data from an FSL melodic directory.
+        Assume labelfile is relative to the ica directory.
+        """
+        melodic_mix = np.loadtxt(op.join(icadir, 'melodic_mix'))
+        try:
+            melodic_oic = nib.load(op.join(icadir, 'melodic_oIC.nii.gz'))
+        except FileNotFoundError:
+            # When running MELODIC from the GUI, melodic oIC may not exist.
+            logging.warning('Melodic oIC not found. Using IC.')
+            melodic_oic = nib.load(op.join(icadir, 'melodic_IC.nii.gz'))
 
-    def __init__(self, path, atlas=None):
+        if labelfile is not None:
+            labels = parse_melodic_labelfile(op.join(icadir, labelfile))
+            melodic_mix = melodic_mix[:, labels]
+            mapdata = melodic_oic.get_data()
+            melodic_oic = nib.Nifti1Image(mapdata[:, :, :, labels],
+                                          melodic_oic.affine)
+
+        return cls(timeseries=melodic_mix, maps=melodic_oic)
+
+    @classmethod
+    def from_dual_regression(cls, drdir):
+        """Load data from an FSL dual regression directory.
         """
-        Wrapper class for dataset so that it offers the same methods as
-        the MelodicData class. Instead of taking a path to a directory,
-        it takes a path to a file directly and computes the TFMs based
-        on an ATLAS.
+        stage1 = np.loadtxt(op.join(drdir, 'dr_stage1_subject00000.txt'))
+        stage2 = nib.load(op.join(drdir, 'dr_stage2_subject00000.nii.gz'))
+        return cls(timeseries=stage1, maps=stage2)
+
+    @classmethod
+    def from_fmri_data(cls, datafile, atlas=None):
+        """Take a 4D dataset and generate signals from the atlas parcels.
         """
-        if atlas is None:
-            atlas = MIST_ATLAS_444
+        atlas = MIST_ATLAS_444 if atlas is None else atlas
 
         # Resampling target should be the image with lowest resolution.
         # Assuming that the data resolution is isotropic for now.
         atlas_res = nib.load(atlas).header['pixdim'][1]
-        data_res = nib.load(path).header['pixdim'][1]
+        data_res = nib.load(datafile).header['pixdim'][1]
         resampling_target = 'data' if data_res > atlas_res else 'labels'
 
         masker = NiftiLabelsMasker(labels_img=atlas, standardize=True,
-                                   verbose=10,
                                    resampling_target=resampling_target)
-
-        signal = masker.fit_transform(path)
-
-        atlasnifti = nib.load(atlas)
-        atlasdata = nib.load(atlas).get_data()
-        nrois = signal.shape[-1]
-        rsns = np.stack([atlasdata.copy() for i in range(nrois)],
-                        axis=-1)
-        for index, volume in enumerate(np.rollaxis(rsns, -1)):
-            # The idea of querying for index + 1 is because the
-            # first map is the "non-relevant" non-brain area we want to skip.
-            offset = 1
-            volume[atlasdata == index + offset] = 1
-            volume[atlasdata != index + offset] = 0
-
-        # Making rsns into a 2D vector allows us to have a closer programming
-        # representation of the TFM matrix model, where we multiply
-        # two matrices to obtain the "TFMs".
-        rsns = np.reshape(rsns, (-1, nrois))
-
-        assert (rsns.max() == 1 and rsns.min() == 0)
-
-        self.shape = atlasnifti.shape[:3]
-        self.affine = atlasnifti.affine
-        self.rsns = rsns
-        self.signal = signal
-        self.explainedvar = 1
+        signals = masker.fit_transform(datafile)
+        atlasrois = atlas_roitovol(atlas, nrois=signals.shape[-1])
+        return cls(timeseries=signals, maps=atlasrois)
 
 
 class TFM:
@@ -349,7 +339,7 @@ def main(args):
     # Start logging
     logging.basicConfig(format="%(asctime)s [%(levelname)s]: %(message)s",
                         datefmt="%Y-%m-%d %H:%M:%S",
-                        level=logging.INFO,
+                        level=logging.WARNING,
                         handlers=[
                             logging.FileHandler(out("tfm.log"), mode='w'),
                             logging.StreamHandler()
@@ -357,24 +347,22 @@ def main(args):
     logging.info(f"Welcome to TFM version {__version__}")
     logging.info(sys.argv)
 
-
     # Load data
     logging.info(f"Loading data from {args.inputdir}")
 
-    # If inputdir is a directory:
+    labelfile = args.labelfile if not args.no_label else None
+
     if os.path.isdir(args.inputdir):
-        # Assume from dual_regression if directory name does not end in .ica
-        from_dr = (not os.path.abspath(args.inputdir).endswith('.ica'))
-        if args.no_label:
-            melodic_data = MelodicData(args.inputdir, None, from_dr)
+        if os.path.abspath(args.inputdir).endswith('.ica'):
+            tfmdata = Data.from_melodic(args.inputdir, labelfile=labelfile)
         else:
-            melodic_data = MelodicData(args.inputdir, args.labelfile, from_dr)
+            tfmdata = Data.from_dual_regression(args.inputdir)
     else:
-        melodic_data = DenoisedData(args.inputdir)
+        tfmdata = Data.from_fmri_data(args.inputdir)
 
     # Parse user inputs
-    n_components = min(args.n_components, len(melodic_data.signal.T))
-    logging.info(f"# of signal spatial ICs is {len(melodic_data.signal.T)}")
+    n_components = min(args.n_components, len(tfmdata.signal.T))
+    logging.info(f"# of signal spatial ICs is {len(tfmdata.signal.T)}")
     tolerance = args.tolerance
     max_iter = args.max_iter
 
@@ -396,7 +384,7 @@ def main(args):
                           tol=tolerance,
                           algorithm=algorithm,
                           random_state=np.random.randint(0, 2**32 - 1))
-            tfms, sources = tfm_ica.fit_transform(melodic_data)
+            tfms, sources = tfm_ica.fit_transform(tfmdata)
         except UserWarning:
             try_counter += 1
             if try_counter > 5:
@@ -425,7 +413,6 @@ def main(args):
     g = heatmap(out('melodic_unmix'), ax)
     plt.tight_layout()
     f.savefig(out('melodic_unmix.png'))
-
 
 
 def run_tfm():
