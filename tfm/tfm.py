@@ -72,17 +72,17 @@ def atlas_parcel_labels(nrois, target_res=12):
 
 
 def labeled_unmix(unmix):
-    """unmix is the filename of a melodic_unmix matrix, i.e., the "core" tICA mixing matrix.
-    This routine takes the filename and returns a pandas DataFrame with columns:
-    label, name, roi (numbered parcels), tfm (numbered tfms), coefficient (roi x tfm entry),
-    abs_coefficient (np.abs(coefficient)).
-    """
+    """unmix is the filename of a melodic_unmix matrix, i.e., the "core" tICA
+    mixing matrix. This routine takes the filename and returns a pandas
+    DataFrame with columns: label, name, roi (numbered parcels), tfm (numbered
+    tfms), coefficient (roi x tfm entry), abs_coefficient
+    (np.abs(coefficient)). """
     unmix_df = pd.DataFrame(np.loadtxt(unmix))
     rois_parent, parent_names, parent_labels = atlas_parcel_labels(len(unmix_df))
     unmix_df['name'] = parent_names
     unmix_df['label'] = parent_labels
     unmix_df = unmix_df.reset_index().melt(['index', 'label', 'name'])
-    unmix_df = unmix_df.rename(columns={'index':'roi',
+    unmix_df = unmix_df.rename(columns={'index': 'roi',
                                         'variable': 'tfm',
                                         'value': 'coefficient'})
     unmix_df['abs_coefficient'] = unmix_df['coefficient'].abs()
@@ -102,7 +102,8 @@ def heatmap(filename, ax):
         data[column] = 100*data[column]/np.sum(data[column])
 
     g = sns.heatmap(data, yticklabels=1,
-                    annot=True, fmt=".1f", linewidth=.5, ax=ax, vmin=0, vmax=25)
+                    annot=True, fmt=".1f", linewidth=.5, ax=ax,
+                    vmin=0, vmax=25)
     # Slightly reduce fontsize.
     ax.set_yticklabels(ax.get_yticklabels(), fontsize=8)
     return g
@@ -457,7 +458,6 @@ def _cli_parser():
 
     parser.add_argument('--no-label', action='store_true',
                         help='Consider all components to be signals.')
-
 
     return parser
 
