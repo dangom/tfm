@@ -87,19 +87,20 @@ def heatmap(filename, ax):
     _, parent_names, _ = atlas_parcel_labels(len(data_raw))
     data_raw['name'] = parent_names
     data = data_raw.groupby('name').aggregate(sum)
-    # Normalise each TFM such that the contribution of all networks sums to 100%
+
+    # Normalise TFMs such that contributions of all networks sum to 100%
     for column in data:
         data[column] = 100*data[column]/np.sum(data[column])
 
     g = sns.heatmap(data, yticklabels=1,
                     annot=True, fmt=".1f", linewidth=.5, ax=ax,
                     vmin=0, vmax=25)
-    # Slightly reduce fontsize.
+
     ax.set_yticklabels(ax.get_yticklabels(), fontsize=8)
     return g
 
 
-def parse_melodic_labelfile(self, labelfile):
+def parse_melodic_labelfile(labelfile):
     """Utility method to parse the IC classification file, as per
     the conventions of FIX and FSLEYES.
     """
@@ -110,8 +111,7 @@ def parse_melodic_labelfile(self, labelfile):
     n_components = int(penultimate_line.split(',')[0])
 
     # In the labelfile, the first component is numbered 1
-    offset = 1
-    noise = [x - offset for x in ast.literal_eval(last_line)]
+    noise = [x - 1 for x in ast.literal_eval(last_line)]
     return [x for x in range(n_components) if x not in noise]
 
 
@@ -295,6 +295,7 @@ class TFM:
         return nib.Nifti1Image(np.reshape(tfm,
                                           (*melodic_data.shape, -1)),
                                melodic_data.affine), sources
+
 
 
 def main(args):
