@@ -10,7 +10,7 @@ with open('tfm/__init__.py', 'r') as f:
     else:
         version = '0.0.1'
 
-with open('README.rst', 'r', encoding='utf-8') as f:
+with open('README.org', 'r', encoding='utf-8') as f:
     readme = f.read()
 
 REQUIRES = ['nibabel', 'numpy', 'sklearn',
