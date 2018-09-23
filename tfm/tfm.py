@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """
 Compute Temporal Functional Modes
 In other words, run a temporal ICA on the timeseries
@@ -30,15 +29,6 @@ import seaborn as sns
 from sklearn.decomposition import FastICA
 
 from nilearn.input_data import NiftiLabelsMasker
-
-try:
-    from . import __version__
-except ImportError:
-    # If tfm is called as a simple script and not a package, we cannot
-    # guarantee that it was installed properly, or that the file wasn't
-    # modified prior to usage. Not good practice for reproducible results.
-    __version__ = '*VERSION UNKNOWN*'
-
 
 MIST_ROOT = op.join(op.dirname(__file__), 'mistatlas')
 MIST_ATLAS_444 = op.join(MIST_ROOT, 'Parcellations/MIST_444.nii.gz')
@@ -460,7 +450,3 @@ def _cli_parser():
                         help='Consider all components to be signals.')
 
     return parser
-
-
-if __name__ == '__main__':
-    run_tfm()
