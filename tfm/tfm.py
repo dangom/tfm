@@ -18,6 +18,7 @@ import argparse
 import ast
 import logging
 import os
+import os.path as op
 import sys
 import warnings
 
@@ -39,14 +40,13 @@ except ImportError:
     __version__ = '*VERSION UNKNOWN*'
 
 
-# The MIST 444 parcellation seems like a good trade-off between number of
-# parcels and quality of signal. Too many parcels, bad signal. Too few parcels,
-# much too averaged signal.
-ATLAS = '/project/3015046.07/atlas/Parcellations/MIST_444.nii.gz'
-ATLAS_HIERARCHY = '/project/3015046.07/atlas/Hierarchy/MIST_PARCEL_ORDER.csv'
-ATLAS_PARCEL_INFO_444 = '/project/3015046.07/atlas/Hierarchy/MIST_444.csv'
-# The parcel info 20 is for grouping the 444 parcels into networks.
-ATLAS_PARCEL_INFO_12 = '/project/3015046.07/atlas/Parcel_Information/MIST_12.csv'
+MIST_ROOT = op.join(op.dirname(__file__), 'mistatlas')
+MIST_ATLAS_444 = op.join(MIST_ROOT, 'Parcellations/MIST_444.nii.gz')
+MIST_HIERARCHY = op.join(MIST_ROOT, 'Hierarchy/MIST_PARCEL_ORDER.csv')
+
+
+def mist_parcel_info(nrois):
+    return op.join(MIST_ROOT, f'Parcel_Information/MIST_{nrois}.csv')
 
 
 # TODO: Perhaps return a dataframe with original roi, target roi and labels makes more sense.
@@ -59,13 +59,13 @@ def atlas_parcel_labels(nrois, target_res=12):
     The idea is to group ROIs into higher level networks only for labelling and
     summarizing.
     """
-    hierarchy = pd.read_csv(ATLAS_HIERARCHY, delimiter=',')
+    hierarchy = pd.read_csv(MIST_HIERARCHY, delimiter=',')
     roi_ids = np.unique(hierarchy[f's{nrois}'].values)
     rois_parent = [np.unique(hierarchy[f's{target_res}'][hierarchy[f's{nrois}'] == x]) for x in roi_ids]
     # Because all values are the same, take the first one. Use tolist() to get
     # a single flat list in the end.
     rois_parent = [x.tolist()[0] for x in rois_parent]
-    labels = pd.read_csv(ATLAS_PARCEL_INFO_12, delimiter=';')
+    labels = pd.read_csv(mist_parcel_info(12), delimiter=';')
     parent_names = [labels[labels['roi'] == x]['name'].values.tolist()[0] for x in rois_parent]
     parent_labels = [labels[labels['roi'] == x]['label'].values.tolist()[0] for x in rois_parent]
     return rois_parent, parent_names, parent_labels
@@ -205,9 +205,18 @@ class DenoisedData():
         on an ATLAS.
         """
         if atlas is None:
-            atlas = ATLAS
+            atlas = MIST_ATLAS_444
 
-        masker = NiftiLabelsMasker(labels_img=atlas, standardize=True)
+        # Resampling target should be the image with lowest resolution.
+        # Assuming that the data resolution is isotropic for now.
+        atlas_res = nib.load(atlas).header['pixdim'][1]
+        data_res = nib.load(path).header['pixdim'][1]
+        resampling_target = 'data' if data_res > atlas_res else 'labels'
+
+        masker = NiftiLabelsMasker(labels_img=atlas, standardize=True,
+                                   verbose=10,
+                                   resampling_target=resampling_target)
+
         signal = masker.fit_transform(path)
 
         atlasnifti = nib.load(atlas)
