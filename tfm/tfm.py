@@ -169,7 +169,7 @@ class Data:
         self.affine = maps.affine
         self.explainedvar = 1
 
-        self.kind = None
+        self.kind = kind
 
     @property
     def rsns(self):
