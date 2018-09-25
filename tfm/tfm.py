@@ -332,7 +332,7 @@ def main(args):
         print(out('melodic_mix'))
         return
 
-    # Start logging
+    # Start logging. Not sure why the FileHandler doesn't work from the cluster...
     logging.basicConfig(format="%(asctime)s [%(levelname)s]: %(message)s",
                         datefmt="%Y-%m-%d %H:%M:%S",
                         level=logging.INFO,
