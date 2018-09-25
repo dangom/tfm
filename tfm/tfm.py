@@ -156,7 +156,7 @@ class Data:
     about. The spatial maps are thus matrices of dimensions n_voxels x
     n_mixtures.
     """
-    def __init__(self, timeseries, maps):
+    def __init__(self, timeseries, maps, kind=None):
         """Timeseries is a numpy array.
         Maps is a nibabel Nifti1Image object.
         """
@@ -168,6 +168,8 @@ class Data:
         self.shape = maps.shape[:-1]
         self.affine = maps.affine
         self.explainedvar = 1
+
+        self.kind = None
 
     @property
     def rsns(self):
@@ -199,7 +201,7 @@ class Data:
             melodic_oic = nib.Nifti1Image(mapdata[:, :, :, labels],
                                           melodic_oic.affine)
 
-        return cls(timeseries=melodic_mix, maps=melodic_oic)
+        return cls(timeseries=melodic_mix, maps=melodic_oic, kind='melodic')
 
     @classmethod
     def from_dual_regression(cls, drdir):
@@ -207,7 +209,7 @@ class Data:
         """
         stage1 = np.loadtxt(op.join(drdir, 'dr_stage1_subject00000.txt'))
         stage2 = nib.load(op.join(drdir, 'dr_stage2_subject00000.nii.gz'))
-        return cls(timeseries=stage1, maps=stage2)
+        return cls(timeseries=stage1, maps=stage2, kind='dr')
 
     @classmethod
     def from_fmri_data(cls, datafile, atlas=None):
@@ -225,7 +227,7 @@ class Data:
                                    resampling_target=resampling_target)
         signals = masker.fit_transform(datafile)
         atlasrois = atlas_roitovol(atlas, nrois=signals.shape[-1])
-        return cls(timeseries=signals, maps=atlasrois)
+        return cls(timeseries=signals, maps=atlasrois, kind='atlas')
 
 
 class TFM:
@@ -251,7 +253,7 @@ class TFM:
         sources = self.ica.fit_transform(signal)
         return sources
 
-    def fit_transform(self, melodic_data):
+    def fit_transform(self, tfmdata):
         """Take a MelodicData object and unmix it.
         MelodicData does not need to be a result from Melodic at all,
         as long as its structure contains the following four elements:
@@ -260,8 +262,8 @@ class TFM:
         3. shape - The original 3D dimensions of signal.
         4. affine - The original affine matrix of the rsns.
         """
-        sources = self.unmix(melodic_data.signal)
-        rsns = melodic_data.rsns
+        sources = self.unmix(tfmdata.signal)
+        rsns = tfmdata.rsns
         # Use a copy so we don't mutate the internals of FastICA later
         # when reordering the TFM components.
         mixing = self.ica.mixing_.copy()
@@ -272,8 +274,8 @@ class TFM:
         # Mask outside of brain with NaN
         tfm[rsns.max(axis=-1) == 0] = np.nan
 
-        # Demean and variance normalize *EACH COMPONENT INDIVIDUALLY.*
-        tfm -= np.nanmean(tfm, axis=0)
+        # variance normalize *EACH COMPONENT INDIVIDUALLY.*
+        # tfm -= np.nanmean(tfm, axis=0)
         tfm /= np.nanstd(tfm, axis=0)
 
         tfm = np.nan_to_num(tfm)
@@ -286,7 +288,7 @@ class TFM:
                 node_weights *= -1
 
         # Now order the components according to the RMS of the mixing matrix.
-        weighted_mixing = melodic_data.explainedvar * mixing
+        weighted_mixing = tfmdata.explainedvar * mixing
         rms = np.sum(np.square(weighted_mixing), 0)
         order = np.argsort(rms)[::-1]  # Decreasing order.
 
@@ -295,8 +297,8 @@ class TFM:
         sources = sources[:, order]
 
         return nib.Nifti1Image(np.reshape(tfm,
-                                          (*melodic_data.shape, -1)),
-                               melodic_data.affine), sources
+                                          (*tfmdata.shape, -1)),
+                               tfmdata.affine), sources
 
 
 
@@ -333,7 +335,7 @@ def main(args):
     # Start logging
     logging.basicConfig(format="%(asctime)s [%(levelname)s]: %(message)s",
                         datefmt="%Y-%m-%d %H:%M:%S",
-                        level=logging.WARNING,
+                        level=logging.INFO,
                         handlers=[
                             logging.FileHandler(out("tfm.log"), mode='w'),
                             logging.StreamHandler()
@@ -402,11 +404,12 @@ def main(args):
     np.savetxt(out('melodic_FTmix'), np.abs(np.fft.rfft(sources, axis=0)),
                delimiter='  ', fmt='%.6f')
 
-    # Save a heatmap of melodic unmix.
-    f, ax = plt.subplots(figsize=plt.figaspect(1/2))
-    g = heatmap(out('melodic_unmix'), ax)
-    plt.tight_layout()
-    f.savefig(out('melodic_unmix.png'))
+    # When using an atlas, save a heatmap of melodic unmix.
+    if tfmdata.kind == 'atlas':
+        f, ax = plt.subplots(figsize=plt.figaspect(1/2))
+        g = heatmap(out('melodic_unmix'), ax)
+        plt.tight_layout()
+        f.savefig(out('melodic_unmix.png'))
 
 
 def run_tfm():
