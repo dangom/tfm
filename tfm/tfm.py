@@ -236,13 +236,16 @@ class TFM:
 
     # Deflation takes much longer, but converges more often.
     def __init__(self, n_components=30, max_iter=20_000, tol=0.00001,
-                 fun='logcosh', algorithm='parallel', random_state=None):
+                 fun='logcosh', algorithm='parallel', random_state=None,
+                 demean_tfms=True):
 
         self.ica = FastICA(max_iter=max_iter, tol=tol,
                            n_components=n_components,
                            fun=fun,
                            algorithm=algorithm,
                            random_state=random_state)
+
+        self.demean_tfms = demean_tfms
 
     def unmix(self, signal):
         """Call FastICA on the signal components.
@@ -262,30 +265,31 @@ class TFM:
         3. shape - The original 3D dimensions of signal.
         4. affine - The original affine matrix of the rsns.
         """
-        sources = self.unmix(tfmdata.signal)
+        sources = self.unmix(tfmdata.signal)  # # timepoints X # tfms
         rsns = tfmdata.rsns
         # Use a copy so we don't mutate the internals of FastICA later
         # when reordering the TFM components.
-        mixing = self.ica.mixing_.copy()
+        mixing = self.ica.mixing_.copy()  # # ROIs X # tfms
 
         # The TFM matrix multiplication.
-        tfm = np.dot(rsns, mixing)
+        tfm = np.dot(rsns, mixing) # # voxels X # tfms
 
         # Mask outside of brain with NaN
         tfm[rsns.max(axis=-1) == 0] = np.nan
 
         # variance normalize *EACH COMPONENT INDIVIDUALLY.*
-        # tfm -= np.nanmean(tfm, axis=0)
+        if self.demean_tfms:
+            tfm -= np.nanmean(tfm, axis=0)
         tfm /= np.nanstd(tfm, axis=0)
 
         tfm = np.nan_to_num(tfm)
 
         # Because ICA orientation is arbitrary, make it such that largest value
-        # is always positive.
-        for spatial_map, node_weights in zip(tfm.T, mixing.T):
+        # is always positive. Also flip the timeseries.
+        for spatial_map, ts in zip(tfm.T, sources.T):
             if spatial_map[np.abs(spatial_map).argmax()] < 0:
                 spatial_map *= -1
-                node_weights *= -1
+                ts *= -1
 
         # Now order the components according to the RMS of the mixing matrix.
         weighted_mixing = tfmdata.explainedvar * mixing
