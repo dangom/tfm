@@ -361,7 +361,7 @@ def double_heatmap(corrdf1, corrdf2):
     ax2.set_title('tICA Timeseries')
     ax2.set_xlabel('TFM Index')
     plt.tight_layout()
-    return g1, g2
+    return fig
 
 
 
@@ -405,11 +405,13 @@ def main(args):
 
     if os.path.isdir(args.inputdir):
         if os.path.abspath(args.inputdir).endswith('.ica'):
-            tfmdata = Data.from_melodic(args.inputdir, labelfile=labelfile)
+            tfmdata = Data.from_melodic(args.inputdir, labelfile=labelfile,
+                                        confounds=args.confounds)
         else:
-            tfmdata = Data.from_dual_regression(args.inputdir)
+            tfmdata = Data.from_dual_regression(args.inputdir,
+                                                confounds=args.confounds)
     else:
-        tfmdata = Data.from_fmri_data(args.inputdir)
+        tfmdata = Data.from_fmri_data(args.inputdir, confounds=args.confounds)
 
     # Parse user inputs
     n_components = min(args.n_components, len(tfmdata.signal.T))
@@ -463,12 +465,22 @@ def main(args):
     if tfmdata.kind == 'atlas':
         # When using an atlas, save a heatmap of melodic unmix.
         df = data_summary(out('melodic_unmix'))
-        df.to_csv(out('network_contributions'))
+        df.to_csv(out('network_contributions.csv'))
         f, ax = plt.subplots(figsize=plt.figaspect(1/2))
         g = heatmap(df, ax, vmin=0, vmax=25, yticklabels=1,
                     annot=True, fmt=".1f", linewidth=.5)
         plt.tight_layout()
         f.savefig(out('melodic_unmix.png'))
+
+    if tfmdata.confounds is not None:
+        cofs = pd.read_csv(tfmdata.confounds, delimiter='\t')
+        dfsignal = correlation_with_confounds(tfmdata.signal, cofs)
+        dfsignal.to_csv('signal_correlation_to_confounds.csv')
+        dftfm = correlation_with_confounds(sources, cofs)
+        dftfm.to_csv('tfm_correlation_to_confounds.csv')
+        fig = double_heatmap(dfsignal, dftfm)
+        fig.savefig(out('correlation_with_confounds.png'))
+
 
 
 def run_tfm():
