@@ -102,13 +102,13 @@ def data_summary(filename):
     return data
 
 
-def heatmap(data, ax):
+def heatmap(data, ax, **kwargs):
     """Plot the core TFM mixing matrix as a heatmap, which ROIs contributions
     aggregated by the 12 MIST functional networks.
     """
-    g = sns.heatmap(data, yticklabels=1,
-                    annot=True, fmt=".1f", linewidth=.5, ax=ax,
-                    vmin=0, vmax=25)
+    g = sns.heatmap(data,
+                    ax=ax,
+                    **kwargs)
 
     ax.set_yticklabels(ax.get_yticklabels(), fontsize=8)
     return g
@@ -432,7 +432,8 @@ def main(args):
         df = data_summary(out('melodic_unmix'))
         df.to_csv(out('network_contributions'))
         f, ax = plt.subplots(figsize=plt.figaspect(1/2))
-        g = heatmap(df, ax)
+        g = heatmap(df, ax, vmin=0, vmax=25, yticklabels=1,
+                    annot=True, fmt=".1f", linewidth=.5)
         plt.tight_layout()
         f.savefig(out('melodic_unmix.png'))
 
