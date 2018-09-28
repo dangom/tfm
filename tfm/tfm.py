@@ -114,6 +114,47 @@ def heatmap(data, ax, **kwargs):
     return g
 
 
+def correlate(a, b):
+    """Fast numpy Row-wise Corr. Coefficients for 2D arrays.
+    See benchmarks at https://stackoverflow.com/a/30143754/3568092
+    :param a: 2D array
+    :param b: 2D array
+    :returns: Corr Matrix between rows of a with rows of b
+    :rtype: 2D array
+    """
+    # Center vectors by subtracting row mean.
+    a_centered = a - a.mean(1)[:, None]
+    b_centered = b - b.mean(1)[:, None]
+
+    # Sum of squares across rows.
+    a_sos = (a_centered ** 2).sum(1)
+    b_sos = (b_centered ** 2).sum(1)
+
+    norm_factors = np.sqrt(np.dot(a_sos[:, None], b_sos[None]))
+    # Finally get corr coeff
+    return np.dot(a_centered, b_centered.T) / norm_factors
+
+
+def correlation_with_confounds(signal, confounds):
+    corrmat = correlate(signal.T, np.nan_to_num(confounds.values.T))
+    corrdf = pd.DataFrame(np.abs(corrmat), columns=confounds.columns).T
+    return corrdf
+
+
+def double_heatmap(corrdf1, corrdf2):
+    fig, (ax1, ax2) = plt.subplots(ncols=2, figsize=plt.figaspect(1/2))
+    g1 = heatmap(corrdf1, vmin=0.35, vmax=0.8, ax=ax1,
+                 cbar=False, yticklabels=1, xticklabels=range(1, corrdf1.shape[1]+1))
+    ax1.set_title('sICA Timeseries')
+    ax1.set_xlabel('Signal Component Index')
+    g2 = heatmap(corrdf2, vmin=0.35, vmax=0.8, ax=ax2,
+                 yticklabels=False, xticklabels=range(1, corrdf2.shape[1]+1))
+    ax2.set_title('tICA Timeseries')
+    ax2.set_xlabel('TFM Index')
+    plt.tight_layout()
+    return fig
+
+
 def parse_melodic_labelfile(labelfile):
     """Utility method to parse the IC classification file, as per
     the conventions of FIX and FSLEYES.
@@ -321,48 +362,6 @@ class TFM:
         return nib.Nifti1Image(np.reshape(tfm,
                                           (*tfmdata.shape, -1)),
                                tfmdata.affine), sources
-
-
-def correlate(a, b):
-    """Fast numpy Row-wise Corr. Coefficients for 2D arrays.
-    See benchmarks at https://stackoverflow.com/a/30143754/3568092
-    :param a: 2D array
-    :param b: 2D array
-    :returns: Corr Matrix between rows of a with rows of b
-    :rtype: 2D array
-    """
-    # Center vectors by subtracting row mean.
-    a_centered = a - a.mean(1)[:, None]
-    b_centered = b - b.mean(1)[:, None]
-
-    # Sum of squares across rows.
-    a_sos = (a_centered ** 2).sum(1)
-    b_sos = (b_centered ** 2).sum(1)
-
-    norm_factors = np.sqrt(np.dot(a_sos[:, None], b_sos[None]))
-    # Finally get corr coeff
-    return np.dot(a_centered, b_centered.T) / norm_factors
-
-
-def correlation_with_confounds(signal, confounds):
-    corrmat = correlate(signal.T, np.nan_to_num(confounds.values.T))
-    corrdf = pd.DataFrame(np.abs(corrmat), columns=confounds.columns).T
-    return corrdf
-
-
-def double_heatmap(corrdf1, corrdf2):
-    fig, (ax1, ax2) = plt.subplots(ncols=2, figsize=plt.figaspect(1/2))
-    g1 = heatmap(corrdf1, vmin=0.35, vmax=0.8, ax=ax1,
-                 cbar=False, yticklabels=1, xticklabels=range(1, corrdf1.shape[1]+1))
-    ax1.set_title('sICA Timeseries')
-    ax1.set_xlabel('Signal Component Index')
-    g2 = heatmap(corrdf2, vmin=0.35, vmax=0.8, ax=ax2,
-                 yticklabels=False, xticklabels=range(1, corrdf2.shape[1]+1))
-    ax2.set_title('tICA Timeseries')
-    ax2.set_xlabel('TFM Index')
-    plt.tight_layout()
-    return fig
-
 
 
 def main(args):
