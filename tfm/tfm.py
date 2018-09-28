@@ -81,9 +81,9 @@ def labeled_unmix(unmix):
     return unmix_df
 
 
-def heatmap(filename, ax):
-    """Plot the core TFM mixing matrix as a heatmap, which ROIs contributions
-    aggregated by the 12 MIST functional networks.
+def data_summary(filename):
+    """Return a DataFrame with the core matrix summarized by
+    networks. Values are given by % contribution to each tfm.
     """
     data_raw = np.abs(pd.DataFrame(np.loadtxt(filename)))
     _, parent_names, _ = atlas_parcel_labels(len(data_raw))
@@ -94,6 +94,18 @@ def heatmap(filename, ax):
     for column in data:
         data[column] = 100*data[column]/np.sum(data[column])
 
+    # Replace '_' for ' ' in the network labels.
+    data.index = pd.Index(np.array(list(map(lambda x: x.replace('_', ' '),
+                                            data.index.values)),
+                                   dtype='object'))
+
+    return data
+
+
+def heatmap(data, ax):
+    """Plot the core TFM mixing matrix as a heatmap, which ROIs contributions
+    aggregated by the 12 MIST functional networks.
+    """
     g = sns.heatmap(data, yticklabels=1,
                     annot=True, fmt=".1f", linewidth=.5, ax=ax,
                     vmin=0, vmax=25)
@@ -398,6 +410,7 @@ def main(args):
             break
 
     warnings.resetwarnings()
+    logging.info(f"TFM demeaning set to: {tfm_ica.demean_tfms}")
 
     # Save outputs
     logging.info(f"Saving outputs to directory {outdir}")
@@ -408,10 +421,12 @@ def main(args):
     np.savetxt(out('melodic_FTmix'), np.abs(np.fft.rfft(sources, axis=0)),
                delimiter='  ', fmt='%.6f')
 
-    # When using an atlas, save a heatmap of melodic unmix.
     if tfmdata.kind == 'atlas':
+        # When using an atlas, save a heatmap of melodic unmix.
+        df = data_summary(out('melodic_unmix'))
+        df.to_csv(out('network_contributions'))
         f, ax = plt.subplots(figsize=plt.figaspect(1/2))
-        g = heatmap(out('melodic_unmix'), ax)
+        g = heatmap(df, ax)
         plt.tight_layout()
         f.savefig(out('melodic_unmix.png'))
 
