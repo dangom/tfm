@@ -481,7 +481,6 @@ def main(args):
         fig.savefig(out('correlation_with_confounds.png'))
 
 
-
 def run_tfm():
     """Wrapper to be used as entry point for a command line tool.
     """
