@@ -168,7 +168,7 @@ class Data:
     about. The spatial maps are thus matrices of dimensions n_voxels x
     n_mixtures.
     """
-    def __init__(self, timeseries, maps, kind=None):
+    def __init__(self, timeseries, maps, kind=None, confounds=None):
         """Timeseries is a numpy array.
         Maps is a nibabel Nifti1Image object.
         """
@@ -183,6 +183,9 @@ class Data:
 
         self.kind = kind
 
+        # Experimental support for fmriprep confounds
+        self.confounds = confounds
+
     @property
     def rsns(self):
         temporal = self.maps.shape[-1]
@@ -194,7 +197,7 @@ class Data:
         return self.timeseries
 
     @classmethod
-    def from_melodic(cls, icadir, labelfile=None):
+    def from_melodic(cls, icadir, labelfile=None, confounds=None):
         """Load data from an FSL melodic directory.
         Assume labelfile is relative to the ica directory.
         """
@@ -213,18 +216,20 @@ class Data:
             melodic_oic = nib.Nifti1Image(mapdata[:, :, :, labels],
                                           melodic_oic.affine)
 
-        return cls(timeseries=melodic_mix, maps=melodic_oic, kind='melodic')
+        return cls(timeseries=melodic_mix, maps=melodic_oic, kind='melodic',
+                   confounds=confounds)
 
     @classmethod
-    def from_dual_regression(cls, drdir):
+    def from_dual_regression(cls, drdir, confounds=None):
         """Load data from an FSL dual regression directory.
         """
         stage1 = np.loadtxt(op.join(drdir, 'dr_stage1_subject00000.txt'))
         stage2 = nib.load(op.join(drdir, 'dr_stage2_subject00000.nii.gz'))
-        return cls(timeseries=stage1, maps=stage2, kind='dr')
+        return cls(timeseries=stage1, maps=stage2, kind='dr',
+                   confounds=confounds)
 
     @classmethod
-    def from_fmri_data(cls, datafile, atlas=None):
+    def from_fmri_data(cls, datafile, atlas=None, confounds=None):
         """Take a 4D dataset and generate signals from the atlas parcels.
         """
         atlas = MIST_ATLAS_444 if atlas is None else atlas
@@ -239,7 +244,8 @@ class Data:
                                    resampling_target=resampling_target)
         signals = masker.fit_transform(datafile)
         atlasrois = atlas_roitovol(atlas, nrois=signals.shape[-1])
-        return cls(timeseries=signals, maps=atlasrois, kind='atlas')
+        return cls(timeseries=signals, maps=atlasrois, kind='atlas',
+                   confounds=confounds)
 
 
 class TFM:
@@ -455,6 +461,10 @@ def _cli_parser():
     parser.add_argument('-l', '--labelfile', type=str,
                         default='hand_classification.txt',
                         help='Name of classification file. Default hand_classification.txt')
+
+    parser.add_argument('--confounds', type=str,
+                        default=None,
+                        help='Name of confounds file (tested with fmriprep confound files).')
 
     parser.add_argument('--n_components', type=int, default=None,
                         help='Number of components to extract from tICA decomposition')
