@@ -338,21 +338,13 @@ def main(args):
     def out(name):
         return os.path.join(outdir, name)
 
-    # Check that input directories are OK and that we don't overwrite anything.
-    if not args.dryrun:
-        assert os.path.exists(args.inputdir)
+    assert os.path.exists(args.inputdir), 'Input does not exist or is not accessible.'
 
-        if not os.path.exists(outdir):
-            os.makedirs(outdir)
-        else:
-            if not args.force:
-                assert os.listdir(outdir) == ""
-
+    if not os.path.exists(outdir):
+        os.makedirs(outdir)
     else:
-        # Some debug info
-        print(out('melodic_IC.nii.gz'))
-        print(out('melodic_mix'))
-        return
+        if not args.force:
+            assert os.listdir(outdir) == "", 'Already existing files in output directory.'
 
     # Start logging. Not sure why the FileHandler doesn't work from the cluster...
     logging.basicConfig(format="%(asctime)s [%(levelname)s]: %(message)s",
@@ -475,9 +467,6 @@ def _cli_parser():
 
     parser.add_argument('--max_iter', type=int, default=10_000,
                         help='ICA max number of iterations')
-
-    parser.add_argument('--dryrun', action='store_true',
-                        help='Print which files would be generated.')
 
     parser.add_argument('--force', action='store_true',
                         help='Overwrite files.')
