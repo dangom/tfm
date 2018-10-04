@@ -57,7 +57,7 @@ def atlas_parcel_labels(nrois, target_res=12):
     # Because all values are the same, take the first one. Use tolist() to get
     # a single flat list in the end.
     rois_parent = [x.tolist()[0] for x in rois_parent]
-    labels = pd.read_csv(mist_parcel_info(12), delimiter=';')
+    labels = pd.read_csv(mist_parcel_info(target_res), delimiter=';')
     parent_names = [labels[labels['roi'] == x]['name'].values.tolist()[0] for x in rois_parent]
     parent_labels = [labels[labels['roi'] == x]['label'].values.tolist()[0] for x in rois_parent]
     return rois_parent, parent_names, parent_labels
