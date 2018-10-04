@@ -466,7 +466,7 @@ def main(args):
         df = data_summary(out('melodic_unmix'))
         df.to_csv(out('network_contributions.csv'))
         f, ax = plt.subplots(figsize=plt.figaspect(1/2))
-        g = heatmap(df, ax, vmin=0, vmax=25, yticklabels=1,
+        g = heatmap(df, ax, vmin=5, vmax=20, yticklabels=1,
                     annot=True, fmt=".1f", linewidth=.5,
                     xticklabels=range(1, df.shape[1] + 1))
         ax.set_xlabel('TFM Index')
