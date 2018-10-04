@@ -378,7 +378,7 @@ def main(args):
     def out(name):
         return os.path.join(outdir, name)
 
-    assert os.path.exists(args.inputdir), 'Input does not exist or is not accessible.'
+    assert os.path.exists(args.inputdir), f'Input {args.inputdir} does not exist or is not accessible.'
 
     if not os.path.exists(outdir):
         os.makedirs(outdir)
