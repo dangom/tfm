@@ -476,7 +476,6 @@ def main(args):
         df_64 = data_summary(out('melodic_unmix'), target_res=64)
         df_64.to_csv(out('network_contributions_64.csv'))
 
-
     if tfmdata.confounds is not None:
         cofs = pd.read_csv(tfmdata.confounds, delimiter='\t')
         dfsignal = correlation_with_confounds(tfmdata.signal, cofs)
