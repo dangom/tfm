@@ -81,11 +81,15 @@ def labeled_unmix(unmix):
     return unmix_df
 
 
-def data_summary(filename, target_res=12):
+def data_summary(filename_or_matrix, target_res=12):
     """Return a DataFrame with the core matrix summarized by
     networks. Values are given by % contribution to each tfm.
     """
-    data_raw = np.abs(pd.DataFrame(np.loadtxt(filename)))
+    if isinstance(filename_or_matrix, str):
+        mat = filename_or_matrix
+    else:
+        mat = np.loadtxt(filename_or_matrix)
+    data_raw = np.abs(pd.DataFrame(mat))
     _, parent_names, _ = atlas_parcel_labels(len(data_raw), target_res)
     data_raw['name'] = parent_names
     data = data_raw.groupby('name').aggregate(sum)
@@ -100,6 +104,12 @@ def data_summary(filename, target_res=12):
                                    dtype='object'))
 
     return data
+
+
+def sort_by_visual(matrix):
+    summary = data_summary(matrix)
+    order = summary.sort_values('VISUAL NETWORK', axis=1).columns
+    return order.values.astype(int)[::-1]
 
 
 def heatmap(data, ax, **kwargs):
@@ -351,9 +361,10 @@ class TFM:
                 ts *= -1
 
         # Now order the components according to the RMS of the mixing matrix.
-        weighted_mixing = tfmdata.explainedvar * mixing
-        rms = np.sum(np.square(weighted_mixing), 0)
-        order = np.argsort(rms)[::-1]  # Decreasing order.
+        # weighted_mixing = tfmdata.explainedvar * mixing
+        # rms = np.sum(np.square(weighted_mixing), 0)
+        # order = np.argsort(rms)[::-1]  # Decreasing order.
+        order = sort_by_visual(mixing)
 
         self.reordered_mixing = mixing[:, order]
         tfm = tfm[:, order]
