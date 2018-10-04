@@ -81,12 +81,12 @@ def labeled_unmix(unmix):
     return unmix_df
 
 
-def data_summary(filename):
+def data_summary(filename, target_res=12):
     """Return a DataFrame with the core matrix summarized by
     networks. Values are given by % contribution to each tfm.
     """
     data_raw = np.abs(pd.DataFrame(np.loadtxt(filename)))
-    _, parent_names, _ = atlas_parcel_labels(len(data_raw))
+    _, parent_names, _ = atlas_parcel_labels(len(data_raw), target_res)
     data_raw['name'] = parent_names
     data = data_raw.groupby('name').aggregate(sum)
 
@@ -472,6 +472,10 @@ def main(args):
         ax.set_xlabel('TFM Index')
         plt.tight_layout()
         f.savefig(out('melodic_unmix.png'))
+
+        df_64 = data_summary(out('melodic_unmix'), target_res=64)
+        df_64.to_csv(out('network_contributions_64.csv'))
+
 
     if tfmdata.confounds is not None:
         cofs = pd.read_csv(tfmdata.confounds, delimiter='\t')
