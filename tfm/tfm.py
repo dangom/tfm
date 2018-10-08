@@ -472,6 +472,16 @@ def main(args):
     np.savetxt(out('melodic_FTmix'), np.abs(np.fft.rfft(sources, axis=0)),
                delimiter='  ', fmt='%.6f')
 
+    if tfmdata.confounds is not None:
+        cofs = pd.read_csv(tfmdata.confounds, delimiter='\t')
+        dfsignal = correlation_with_confounds(tfmdata.signal, cofs)
+        dfsignal.to_csv('signal_correlation_to_confounds.csv')
+        dftfm = correlation_with_confounds(sources, cofs)
+        contamination = dftfm.max(axis=0).values
+        dftfm.to_csv('tfm_correlation_to_confounds.csv')
+        fig = double_heatmap(dfsignal, dftfm)
+        fig.savefig(out('correlation_with_confounds.png'))
+
     if tfmdata.kind == 'atlas':
         # When using an atlas, save a heatmap of melodic unmix.
         df = data_summary(out('melodic_unmix'))
@@ -481,20 +491,24 @@ def main(args):
                     annot=True, fmt=".1f", linewidth=.5,
                     xticklabels=range(1, df.shape[1] + 1))
         ax.set_xlabel('TFM Index')
+        # Should simplify the logic of these if calls... eventually.
+        if tfmdata.confounds is not None:
+            # What I'm doing here is changing the x labels of the TFMs in the
+            # plot, such that their color interpolates from green (no
+            # contamination), to red (complete contamination), over yellow. The
+            # contamination is computed as the max correlation between the TFM
+            # timecourse and the confounding regressors.
+            contamination = dftfm.max(axis=0).values.tolist()
+            colors = [(min(1, 2 * x),
+                       min(1, 2 * (1 - x)), 0) for x in contamination]
+            for label, color in zip(ax.get_xticklabels(), colors):
+                label.set_color(color)
+                label.set_weight('bold')
         plt.tight_layout()
         f.savefig(out('melodic_unmix.png'))
-
+        # Also save the summary with MIST 64 instead of only MIST 12.
         df_64 = data_summary(out('melodic_unmix'), target_res=64)
         df_64.to_csv(out('network_contributions_64.csv'))
-
-    if tfmdata.confounds is not None:
-        cofs = pd.read_csv(tfmdata.confounds, delimiter='\t')
-        dfsignal = correlation_with_confounds(tfmdata.signal, cofs)
-        dfsignal.to_csv('signal_correlation_to_confounds.csv')
-        dftfm = correlation_with_confounds(sources, cofs)
-        dftfm.to_csv('tfm_correlation_to_confounds.csv')
-        fig = double_heatmap(dfsignal, dftfm)
-        fig.savefig(out('correlation_with_confounds.png'))
 
 
 def run_tfm():
