@@ -85,7 +85,7 @@ def data_summary(filename_or_matrix, target_res=12):
     """Return a DataFrame with the core matrix summarized by
     networks. Values are given by % contribution to each tfm.
     """
-    if isinstance(filename_or_matrix, str):
+    if not isinstance(filename_or_matrix, str):
         mat = filename_or_matrix
     else:
         mat = np.loadtxt(filename_or_matrix)
