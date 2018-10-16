@@ -20,6 +20,7 @@ import os
 import os.path as op
 import sys
 import warnings
+from typing import List, Optional, Tuple
 
 import matplotlib.pyplot as plt
 import nibabel as nib
@@ -37,12 +38,14 @@ MIST_ATLAS_444 = op.join(MIST_ROOT, 'Parcellations/MIST_444.nii.gz')
 MIST_HIERARCHY = op.join(MIST_ROOT, 'Hierarchy/MIST_PARCEL_ORDER.csv')
 
 
-def mist_parcel_info(nrois):
+def mist_parcel_info(nrois: int = 12) -> str:
     return op.join(MIST_ROOT, f'Parcel_Information/MIST_{nrois}.csv')
 
 
-# TODO: Perhaps return a dataframe with original roi, target roi and labels makes more sense.
-def atlas_parcel_labels(nrois, target_res=12):
+# TODO: Perhaps return a dataframe with original roi, target roi and labels
+# makes more sense.
+def atlas_parcel_labels(nrois: int,
+                        target_res: int = 12) -> Tuple[List, List, List]:
     """This function takes two integer numbers, nrois and target_res. nrois
     indicates the number of MIST parcels used for an atlas based tICA
     decomposition, and target_res indicates the number of MIST parcels (higher
@@ -53,17 +56,28 @@ def atlas_parcel_labels(nrois, target_res=12):
     """
     hierarchy = pd.read_csv(MIST_HIERARCHY, delimiter=',')
     roi_ids = np.unique(hierarchy[f's{nrois}'].values)
-    rois_parent = [np.unique(hierarchy[f's{target_res}'][hierarchy[f's{nrois}'] == x]) for x in roi_ids]
+
+    rois_parent = [
+        np.unique(hierarchy[f's{target_res}'][hierarchy[f's{nrois}'] == x])
+        for x in roi_ids]
+
     # Because all values are the same, take the first one. Use tolist() to get
     # a single flat list in the end.
     rois_parent = [x.tolist()[0] for x in rois_parent]
     labels = pd.read_csv(mist_parcel_info(target_res), delimiter=';')
-    parent_names = [labels[labels['roi'] == x]['name'].values.tolist()[0] for x in rois_parent]
-    parent_labels = [labels[labels['roi'] == x]['label'].values.tolist()[0] for x in rois_parent]
+
+    parent_names = [
+        labels[labels['roi'] == x]['name'].values.tolist()[0]
+        for x in rois_parent]
+
+    parent_labels = [
+        labels[labels['roi'] == x]['label'].values.tolist()[0]
+        for x in rois_parent]
+
     return rois_parent, parent_names, parent_labels
 
 
-def labeled_unmix(unmix):
+def labeled_unmix(unmix: str) -> pd.DataFrame:
     """unmix is the filename of a melodic_unmix matrix, i.e., the "core" tICA
     mixing matrix. This routine takes the filename and returns a pandas
     DataFrame with columns: label, name, roi (numbered parcels), tfm (numbered
@@ -165,7 +179,7 @@ def double_heatmap(corrdf1, corrdf2):
     return fig
 
 
-def parse_melodic_labelfile(labelfile):
+def parse_melodic_labelfile(labelfile: str):
     """Utility method to parse the IC classification file, as per
     the conventions of FIX and FSLEYES.
     """
@@ -180,7 +194,7 @@ def parse_melodic_labelfile(labelfile):
     return [x for x in range(n_components) if x not in noise]
 
 
-def atlas_roitovol(atlas, nrois):
+def atlas_roitovol(atlas: str, nrois: int) -> nib.Nifti1Image:
     """Some atlases are 3D files wherein each value represents
     a separate ROI. For example, 0 for non-brain, 1 for CSF, 2 for
     gray matter, etc.
@@ -219,7 +233,9 @@ class Data:
     about. The spatial maps are thus matrices of dimensions n_voxels x
     n_mixtures.
     """
-    def __init__(self, timeseries, maps, kind=None, confounds=None):
+    def __init__(self, timeseries: np.array, maps: nib.Nifti1Image,
+                 kind: Optional[str] = None,
+                 confounds: Optional[str] = None) -> None:
         """Timeseries is a numpy array.
         Maps is a nibabel Nifti1Image object.
         """
@@ -238,17 +254,19 @@ class Data:
         self.confounds = confounds
 
     @property
-    def rsns(self):
+    def rsns(self) -> np.array:
         temporal = self.maps.shape[-1]
         data = np.reshape(self.maps.get_data(), (-1, temporal))
         return data
 
     @property
-    def signal(self):
+    def signal(self) -> np.array:
         return self.timeseries
 
     @classmethod
-    def from_melodic(cls, icadir, labelfile=None, confounds=None):
+    def from_melodic(cls, icadir: str,
+                     labelfile: Optional[str] = None,
+                     confounds: Optional[str] = None):
         """Load data from an FSL melodic directory.
         Assume labelfile is relative to the ica directory.
         """
@@ -271,7 +289,8 @@ class Data:
                    confounds=confounds)
 
     @classmethod
-    def from_dual_regression(cls, drdir, confounds=None):
+    def from_dual_regression(cls, drdir: str,
+                             confounds: Optional[str] = None):
         """Load data from an FSL dual regression directory.
         """
         stage1 = np.loadtxt(op.join(drdir, 'dr_stage1_subject00000.txt'))
@@ -280,7 +299,9 @@ class Data:
                    confounds=confounds)
 
     @classmethod
-    def from_fmri_data(cls, datafile, atlas=None, confounds=None):
+    def from_fmri_data(cls, datafile: str,
+                       atlas: Optional[str] = None,
+                       confounds: Optional[str] = None):
         """Take a 4D dataset and generate signals from the atlas parcels.
         """
         atlas = MIST_ATLAS_444 if atlas is None else atlas
@@ -304,9 +325,12 @@ class TFM:
     """
 
     # Deflation takes much longer, but converges more often.
-    def __init__(self, n_components=30, max_iter=20_000, tol=0.00001,
+    def __init__(self,
+                 n_components: int = 30,
+                 max_iter: int = 20_000,
+                 tol: float = 0.00001,
                  fun='logcosh', algorithm='parallel', random_state=None,
-                 demean_tfms=True):
+                 demean_tfms: bool = True):
 
         self.ica = FastICA(max_iter=max_iter, tol=tol,
                            n_components=n_components,
@@ -316,7 +340,7 @@ class TFM:
 
         self.demean_tfms = demean_tfms
 
-    def unmix(self, signal):
+    def unmix(self, signal: np.array) -> np.array:
         """Call FastICA on the signal components.
         This is a separate function so we can call it from, for example,
         the RAICAR module to verify the reproducibility of the obtained
