@@ -20,7 +20,7 @@ import os
 import os.path as op
 import sys
 import warnings
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Union
 
 import matplotlib.pyplot as plt
 import nibabel as nib
@@ -39,6 +39,9 @@ MIST_HIERARCHY = op.join(MIST_ROOT, 'Hierarchy/MIST_PARCEL_ORDER.csv')
 
 
 def mist_parcel_info(nrois: int = 12) -> str:
+    """Return the filename of the csv with parcel information (label, size,
+    etc.) from the MIST atlas with a number of parcels equal to `nrois`.
+    """
     return op.join(MIST_ROOT, f'Parcel_Information/MIST_{nrois}.csv')
 
 
@@ -84,9 +87,9 @@ def labeled_unmix(unmix: str) -> pd.DataFrame:
     tfms), coefficient (roi x tfm entry), abs_coefficient
     (np.abs(coefficient)). """
     unmix_df = pd.DataFrame(np.loadtxt(unmix))
-    rois_parent, parent_names, parent_labels = atlas_parcel_labels(len(unmix_df))
-    unmix_df['name'] = parent_names
-    unmix_df['label'] = parent_labels
+    rois_parent, names, labels = atlas_parcel_labels(len(unmix_df))
+    unmix_df['name'] = names
+    unmix_df['label'] = labels
     unmix_df = unmix_df.reset_index().melt(['index', 'label', 'name'])
     unmix_df = unmix_df.rename(columns={'index': 'roi',
                                         'variable': 'tfm',
@@ -95,7 +98,8 @@ def labeled_unmix(unmix: str) -> pd.DataFrame:
     return unmix_df
 
 
-def data_summary(filename_or_matrix, target_res=12):
+def data_summary(filename_or_matrix: Union[str, np.array],
+                 target_res: int = 12) -> pd.DataFrame:
     """Return a DataFrame with the core matrix summarized by
     networks. Values are given by % contribution to each tfm.
     """
@@ -120,13 +124,13 @@ def data_summary(filename_or_matrix, target_res=12):
     return data
 
 
-def sort_by_visual(matrix):
+def sort_by_visual(matrix: np.array) -> np.array:
     summary = data_summary(matrix)
     order = summary.sort_values('VISUAL NETWORK', axis=1).columns
     return order.values.astype(int)[::-1]
 
 
-def heatmap(data, ax, **kwargs):
+def heatmap(data: np.array, ax, **kwargs):
     """Plot the core TFM mixing matrix as a heatmap, which ROIs contributions
     aggregated by the 12 MIST functional networks.
     """
@@ -138,7 +142,7 @@ def heatmap(data, ax, **kwargs):
     return g
 
 
-def correlate(a, b):
+def correlate(a: np.array, b: np.array) -> np.array:
     """Fast numpy Row-wise Corr. Coefficients for 2D arrays.
     See benchmarks at https://stackoverflow.com/a/30143754/3568092
     :param a: 2D array
@@ -159,27 +163,32 @@ def correlate(a, b):
     return np.dot(a_centered, b_centered.T) / norm_factors
 
 
-def correlation_with_confounds(signal, confounds):
+def correlation_with_confounds(signal: np.array,
+                               confounds: pd.DataFrame) -> pd.DataFrame:
+
     corrmat = correlate(signal.T, np.nan_to_num(confounds.values.T))
     corrdf = pd.DataFrame(np.abs(corrmat), columns=confounds.columns).T
+
     return corrdf
 
 
-def double_heatmap(corrdf1, corrdf2):
+def double_heatmap(corrdf1: np.array, corrdf2: np.array) -> plt.Figure:
     fig, (ax1, ax2) = plt.subplots(ncols=2, figsize=plt.figaspect(1/2))
     g1 = heatmap(corrdf1, vmin=0.35, vmax=0.8, ax=ax1,
-                 cbar=False, yticklabels=1, xticklabels=range(1, corrdf1.shape[1]+1))
+                 cbar=False, yticklabels=1,
+                 xticklabels=range(1, corrdf1.shape[1] + 1))
     ax1.set_title('sICA Timeseries')
     ax1.set_xlabel('Signal Component Index')
     g2 = heatmap(corrdf2, vmin=0.35, vmax=0.8, ax=ax2,
-                 yticklabels=False, xticklabels=range(1, corrdf2.shape[1]+1))
+                 yticklabels=False,
+                 xticklabels=range(1, corrdf2.shape[1] + 1))
     ax2.set_title('tICA Timeseries')
     ax2.set_xlabel('TFM Index')
     plt.tight_layout()
     return fig
 
 
-def parse_melodic_labelfile(labelfile: str):
+def parse_melodic_labelfile(labelfile: str) -> List[int]:
     """Utility method to parse the IC classification file, as per
     the conventions of FIX and FSLEYES.
     """
@@ -233,7 +242,9 @@ class Data:
     about. The spatial maps are thus matrices of dimensions n_voxels x
     n_mixtures.
     """
-    def __init__(self, timeseries: np.array, maps: nib.Nifti1Image,
+    def __init__(self,
+                 timeseries: np.array,
+                 maps: nib.Nifti1Image,
                  kind: Optional[str] = None,
                  confounds: Optional[str] = None) -> None:
         """Timeseries is a numpy array.
@@ -264,7 +275,8 @@ class Data:
         return self.timeseries
 
     @classmethod
-    def from_melodic(cls, icadir: str,
+    def from_melodic(cls,
+                     icadir: str,
                      labelfile: Optional[str] = None,
                      confounds: Optional[str] = None):
         """Load data from an FSL melodic directory.
@@ -289,7 +301,8 @@ class Data:
                    confounds=confounds)
 
     @classmethod
-    def from_dual_regression(cls, drdir: str,
+    def from_dual_regression(cls,
+                             drdir: str,
                              confounds: Optional[str] = None):
         """Load data from an FSL dual regression directory.
         """
@@ -299,7 +312,8 @@ class Data:
                    confounds=confounds)
 
     @classmethod
-    def from_fmri_data(cls, datafile: str,
+    def from_fmri_data(cls,
+                       datafile: str,
                        atlas: Optional[str] = None,
                        confounds: Optional[str] = None):
         """Take a 4D dataset and generate signals from the atlas parcels.
@@ -349,9 +363,10 @@ class TFM:
         sources = self.ica.fit_transform(signal)
         return sources
 
-    def fit_transform(self, tfmdata):
-        """Take a MelodicData object and unmix it.
-        MelodicData does not need to be a result from Melodic at all,
+    def fit_transform(self,
+                      tfmdata: Data) -> Tuple[nib.Nifti1Image, np.array]:
+        """Take a Data object and unmix it.
+        Data does not need to be a result from Melodic at all,
         as long as its structure contains the following four elements:
         1. signal - 2D matrix of size timecourses vs ROIs.
         2. rsns - 2D matrix of size voxels x RSNs.
@@ -365,7 +380,7 @@ class TFM:
         mixing = self.ica.mixing_.copy()  # # ROIs X # tfms
 
         # The TFM matrix multiplication.
-        tfm = np.dot(rsns, mixing) # # voxels X # tfms
+        tfm = np.dot(rsns, mixing)  # # voxels X # tfms
 
         # Mask outside of brain with NaN
         tfm[rsns.max(axis=-1) == 0] = np.nan
@@ -399,7 +414,7 @@ class TFM:
                                tfmdata.affine), sources
 
 
-def main(args):
+def main(args) -> None:
     """Main TFM routine. Logs some information, checks user inputs, reads
     in the data, orchestrates the tICA decomposition and saves outputs to
     desired locations.
@@ -410,7 +425,7 @@ def main(args):
     else:
         outdir = os.path.join(os.path.dirname(args.inputdir), args.outputdir)
 
-    def out(name):
+    def out(name: str) -> str:
         return os.path.join(outdir, name)
 
     assert os.path.exists(args.inputdir), f'Input {args.inputdir} does not exist or is not accessible.'
@@ -535,7 +550,7 @@ def main(args):
         df_64.to_csv(out('network_contributions_64.csv'))
 
 
-def run_tfm():
+def run_tfm() -> None:
     """Wrapper to be used as entry point for a command line tool.
     """
 
@@ -544,7 +559,7 @@ def run_tfm():
     main(args)
 
 
-def _cli_parser():
+def _cli_parser() -> argparse.ArgumentParser:
     """Argument parser for run_tfm.
     """
     parser = argparse.ArgumentParser(description=__doc__)
