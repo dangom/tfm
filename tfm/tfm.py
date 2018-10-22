@@ -403,11 +403,13 @@ class TFM:
         # weighted_mixing = tfmdata.explainedvar * mixing
         # rms = np.sum(np.square(weighted_mixing), 0)
         # order = np.argsort(rms)[::-1]  # Decreasing order.
-        order = sort_by_visual(mixing)
-
-        self.reordered_mixing = mixing[:, order]
-        tfm = tfm[:, order]
-        sources = sources[:, order]
+        if tfmdata.kind == 'atlas':
+            order = sort_by_visual(mixing)
+            self.reordered_mixing = mixing[:, order]
+            tfm = tfm[:, order]
+            sources = sources[:, order]
+        else:
+            self.reordered_mixing = mixing
 
         return nib.Nifti1Image(np.reshape(tfm,
                                           (*tfmdata.shape, -1)),
