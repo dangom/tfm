@@ -516,10 +516,10 @@ def main(args) -> None:
     if tfmdata.confounds is not None:
         cofs = pd.read_csv(tfmdata.confounds, delimiter='\t')
         dfsignal = correlation_with_confounds(tfmdata.signal, cofs)
-        dfsignal.to_csv('signal_correlation_to_confounds.csv')
+        dfsignal.to_csv(out('signal_correlation_to_confounds.csv'))
         dftfm = correlation_with_confounds(sources, cofs)
         contamination = dftfm.max(axis=0).values
-        dftfm.to_csv('tfm_correlation_to_confounds.csv')
+        dftfm.to_csv(out('tfm_correlation_to_confounds.csv'))
         fig = double_heatmap(dfsignal, dftfm)
         fig.savefig(out('correlation_with_confounds.png'))
 
