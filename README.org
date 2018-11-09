@@ -5,7 +5,7 @@ In other words, run a temporal ICA on the timeseries of spatial ICA, and then re
 
 Temporally-independent functional modes of spontaneous brain activity (Smith et al. 2012).
 
-Temporal Functional Modes are actually nothing but temporal ICA run on parcels of the brain, instead of voxels directly. Provided there are enough timepoints for tICA to converge, there is actually no difference in running the TFM algorithm directly on signals obtained from an atlas based parcellation, instead of a spatial ICA parcellation (as suggested in the original TFM contribution). Therefore, this repository also ships with the MIST parcellation atlas for directly application of temporal ICA for fMRI data.
+Temporal Functional Modes are actually nothing but temporal ICA run on parcels of the brain, instead of voxels directly. Provided there are enough timepoints for tICA to converge, there is little difference in running the TFM algorithm directly on signals obtained from an atlas based parcellation, instead of a spatial ICA parcellation (as suggested in the original TFM contribution). Therefore, this repository also ships with the MIST parcellation atlas for directly application of temporal ICA for fMRI data.
 
 
 * Installation
@@ -25,19 +25,34 @@ or install it directly with pip by calling:
 
 * Usage
 
-TFM provides a command line tool called =tfm=, which allows one to configure the tICA algorithm, as well as inputs and outputs. In essence, users can pass a demeaned and denoised fMRI dataset directly as an input, in which case an atlas based parcellation will take place. Otherwise, passing an FSL MELODIC output directory (with melodic_mix, melodic_oIC.nii.gz and melodic_unmix files) will compute TFMs as described in Smith 2012.
+TFM provides a command line tool called =tfm=, which allows one to configure the tICA algorithm, as well as inputs and outputs. In essence, users can pass a demeaned and denoised fMRI dataset directly as an input, in which case an atlas based parcellation will take place (atlas mode). Otherwise, passing an FSL MELODIC output directory (with melodic_mix, melodic_oIC.nii.gz and melodic_unmix files) will compute TFMs as described in Smith 2012 (ICA mode). Users can also pass a dual_regression directory, so that the =dr_stage1_subject0000.txt= file with timeseries will be used as signal timeseries, and the =dr_stage2_subject0000.nii.gz=  maps will be used as RSN maps (Dual Regression Mode).
 
 Output results of TFM are saved with names following the MELODIC convention, only so as to allow usage and visualization using FSLEYES.
 
+* Outputs
+
+The TFM routine outputs the following files upon completion:
+
+| Filename                            | Meaning                                  | Created when...           |
+|-------------------------------------+------------------------------------------+---------------------------|
+| melodic_IC.nii.gz                   | TFM maps                                 | always                    |
+| melodic_unmix                       | TFM core mixing matrix                   | always                    |
+| melodic_mix                         | TFM timeseries                           | always                    |
+| melodic_FTmix                       | TFM frequency spectra                    | always                    |
+| tfm.log                             | TFM routine log                          | always                    |
+| network_contributions.csv           | 12-network summary of melodic_unmix      | atlas mode                |
+| network_contributions_64.csv        | 64-network summary of melodic_unmix      | atlas mode                |
+| melodic_unmix.png                   | Plot of network_contributions.csv        | atlas mode                |
+| tfm_correlation_to_confounds.csv    | TFM timeseries correlation to cof.       | presence of confound file |
+| signal_correlation_to_confounds.csv | Signal timeseries correlation to cof.    | presence of confound file |
+| correlation_with_confounds.png      | Plot of both signal and tfm corr to cof. | presence of confound file |
+
 * Disclaimer
 
-Some features of TFM (such as the extra raicar submodule) are under development, considered experimental or not fully tested. Use at your own risk.
+Some features of TFM (such an experimental raicar and isctest submodules) are under development, considered experimental or not tested at all. Use at your own risk.
 
 * License
 
-tfm is distributed under the terms of both
+tfm is distributed under the terms of the
 
-- [[https://choosealicense.com/licenses/mit][MIT License]]
-- [[https://choosealicense.com/licenses/apache-2.0][Apache License,  Version 2.0]]
-
-at your option.
+- [[https://choosealicense.com/licenses/gpl-3.0][GNU GPL v3]] 
