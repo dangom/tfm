@@ -57,23 +57,24 @@ def atlas_parcel_labels(nrois: int,
     The idea is to group ROIs into higher level networks only for labelling and
     summarizing.
     """
-    hierarchy = pd.read_csv(MIST_HIERARCHY, delimiter=',')
-    roi_ids = np.unique(hierarchy[f's{nrois}'].values)
+    hierarchy: pd.DataFrame = pd.read_csv(MIST_HIERARCHY, delimiter=',')
+    roi_ids: np.array = np.unique(hierarchy[f's{nrois}'].values)
 
-    rois_parent = [
+    rois_parent: list = [
         np.unique(hierarchy[f's{target_res}'][hierarchy[f's{nrois}'] == x])
         for x in roi_ids]
 
     # Because all values are the same, take the first one. Use tolist() to get
     # a single flat list in the end.
-    rois_parent = [x.tolist()[0] for x in rois_parent]
-    labels = pd.read_csv(mist_parcel_info(target_res), delimiter=';')
+    rois_parent: list = [x.tolist()[0] for x in rois_parent]
+    labels: pd.DataFrame = pd.read_csv(mist_parcel_info(target_res),
+                                       delimiter=';')
 
-    parent_names = [
+    parent_names: list = [
         labels[labels['roi'] == x]['name'].values.tolist()[0]
         for x in rois_parent]
 
-    parent_labels = [
+    parent_labels: list = [
         labels[labels['roi'] == x]['label'].values.tolist()[0]
         for x in rois_parent]
 
@@ -86,7 +87,7 @@ def labeled_unmix(unmix: str) -> pd.DataFrame:
     DataFrame with columns: label, name, roi (numbered parcels), tfm (numbered
     tfms), coefficient (roi x tfm entry), abs_coefficient
     (np.abs(coefficient)). """
-    unmix_df = pd.DataFrame(np.loadtxt(unmix))
+    unmix_df: pd.DataFrame = pd.DataFrame(np.loadtxt(unmix))
     rois_parent, names, labels = atlas_parcel_labels(len(unmix_df))
     unmix_df['name'] = names
     unmix_df['label'] = labels
@@ -416,32 +417,63 @@ class TFM:
                                tfmdata.affine), sources
 
 
-def main(args) -> None:
-    """Main TFM routine. Logs some information, checks user inputs, reads
-    in the data, orchestrates the tICA decomposition and saves outputs to
-    desired locations.
+def _check_dirs(args) -> str:
+    """Check that input and output directories are OK.
+    If the output directory is not an absolute directory, then
+    consider it to be relative to the input directory.
+    Return that.
     """
+
+    errmsg = f'Input {args.inputdir} does not exist or is not accessible.'
+    assert os.path.exists(args.inputdir), errmsg
 
     if os.path.isabs(args.outputdir):
         outdir = args.outputdir
     else:
         outdir = os.path.join(os.path.dirname(args.inputdir), args.outputdir)
 
-    def out(name: str) -> str:
-        return os.path.join(outdir, name)
-
-    assert os.path.exists(args.inputdir), \
-        f'Input {args.inputdir} does not exist or is not accessible.'
-
     if not os.path.exists(outdir):
         os.makedirs(outdir)
     else:
         if not args.force:
-            assert os.listdir(outdir) == "", \
-                'Already existing files in output directory.'
+            errmsg = 'Already existing files in output directory.'
+            assert os.listdir(outdir) == "", errmsg
 
-    # Start logging. Not sure why the FileHandler doesn't work from the
-    # cluster...
+    return outdir
+
+
+def _data_loader(args) -> Data:
+    """Small wrapper to load the data either from melodic, dual_regression
+    or atlas.
+    """
+    labelfile = args.labelfile if not args.no_label else None
+
+    if os.path.isdir(args.inputdir):
+        if os.path.abspath(args.inputdir).endswith('.ica'):
+            tfmdata = Data.from_melodic(args.inputdir, labelfile=labelfile,
+                                        confounds=args.confounds)
+        else:
+            tfmdata = Data.from_dual_regression(args.inputdir,
+                                                confounds=args.confounds)
+    else:
+        tfmdata = Data.from_fmri_data(args.inputdir, confounds=args.confounds)
+
+    return tfmdata
+
+
+def main(args) -> None:
+    """Main TFM routine. Logs some information, checks user inputs, reads
+    in the data, orchestrates the tICA decomposition and saves outputs to
+    desired locations.
+    """
+
+    # Note, this function has side-effects.
+    outdir = _check_dirs(args)
+
+    def out(name: str) -> str:
+        return os.path.join(outdir, name)
+
+    # Start log. Not sure why the FileHandler doesn't work on the cluster...
     logging.basicConfig(format="%(asctime)s [%(levelname)s]: %(message)s",
                         datefmt="%Y-%m-%d %H:%M:%S",
                         level=logging.INFO,
@@ -455,23 +487,13 @@ def main(args) -> None:
     # Load data
     logging.info(f"Loading data from {args.inputdir}")
 
-    labelfile = args.labelfile if not args.no_label else None
-
-    if os.path.isdir(args.inputdir):
-        if os.path.abspath(args.inputdir).endswith('.ica'):
-            tfmdata = Data.from_melodic(args.inputdir, labelfile=labelfile,
-                                        confounds=args.confounds)
-        else:
-            tfmdata = Data.from_dual_regression(args.inputdir,
-                                                confounds=args.confounds)
-    else:
-        tfmdata = Data.from_fmri_data(args.inputdir, confounds=args.confounds)
+    tfmdata = _data_loader(args)
 
     # Parse user inputs
+    tolerance, max_iter = args.tolerance, args.max_iter
+
     n_components = min(args.n_components, len(tfmdata.signal.T))
     logging.info(f"# of signal spatial ICs is {len(tfmdata.signal.T)}")
-    tolerance = args.tolerance
-    max_iter = args.max_iter
 
     # Compute TFMs.
     logging.info("Computing TFMs")
@@ -519,10 +541,10 @@ def main(args) -> None:
     if tfmdata.confounds is not None:
         cofs = pd.read_csv(tfmdata.confounds, delimiter='\t')
         dfsignal = correlation_with_confounds(tfmdata.signal, cofs)
-        dfsignal.to_csv('signal_correlation_to_confounds.csv')
+        dfsignal.to_csv(out('signal_correlation_to_confounds.csv'))
         dftfm = correlation_with_confounds(sources, cofs)
         contamination = dftfm.max(axis=0).values
-        dftfm.to_csv('tfm_correlation_to_confounds.csv')
+        dftfm.to_csv(out('tfm_correlation_to_confounds.csv'))
         fig = double_heatmap(dfsignal, dftfm)
         fig.savefig(out('correlation_with_confounds.png'))
 
@@ -562,6 +584,22 @@ def run_tfm() -> None:
     parser = _cli_parser()
     args = parser.parse_args()
     main(args)
+
+
+def run_correlation_with_confounds() -> None:
+    parser = _cli_parser()
+    args = parser.parse_args()
+
+    # Note, this function has side-effects.
+    outdir = _check_dirs(args)
+
+    def out(name: str) -> str:
+        return os.path.join(outdir, name)
+
+    cofs = pd.read_csv(args.confounds, delimiter='\t')
+    dftfm = correlation_with_confounds(np.loadtxt(out('melodic_mix')),
+                                       cofs)
+    dftfm.to_csv(out('tfm_correlation_to_confounds.csv'))
 
 
 def _cli_parser() -> argparse.ArgumentParser:

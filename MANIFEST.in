@@ -1,4 +1,3 @@
 include README.org
-include LICENSE-APACHE
-include LICENSE-MIT
+include LICENSE-GPL3
 include tfm/mistatlas *

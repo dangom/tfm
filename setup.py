@@ -26,7 +26,7 @@ setup(
     maintainer='Daniel Gomez',
     maintainer_email='d.gomez@donders.ru.nl',
     url='https://github.com/dangom/tfm',
-    license='MIT/Apache-2.0',
+    license='GNU GPL-3.0',
 
     keywords=[
         'temporal functional modes',
@@ -35,18 +35,17 @@ setup(
     classifiers=[
         'Development Status :: 3 - Alpha',
         'Intended Audience :: Developers',
-        'License :: OSI Approved :: MIT License',
-        'License :: OSI Approved :: Apache Software License',
+        'License :: OSI Approved :: GPL3 License',
         'Natural Language :: English',
         'Operating System :: OS Independent',
-        'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: Implementation :: CPython',
-        'Programming Language :: Python :: Implementation :: PyPy',
     ],
     entry_points={
         'console_scripts': [
             'tfm = tfm.tfm:run_tfm',
+            'tfm_confounds=tfm.tfm:run_correlation_with_confounds',
             'raicar = tfm.raicar:main'
         ]
     },
