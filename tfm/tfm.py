@@ -430,15 +430,18 @@ def main(args) -> None:
     def out(name: str) -> str:
         return os.path.join(outdir, name)
 
-    assert os.path.exists(args.inputdir), f'Input {args.inputdir} does not exist or is not accessible.'
+    assert os.path.exists(args.inputdir), \
+        f'Input {args.inputdir} does not exist or is not accessible.'
 
     if not os.path.exists(outdir):
         os.makedirs(outdir)
     else:
         if not args.force:
-            assert os.listdir(outdir) == "", 'Already existing files in output directory.'
+            assert os.listdir(outdir) == "", \
+                'Already existing files in output directory.'
 
-    # Start logging. Not sure why the FileHandler doesn't work from the cluster...
+    # Start logging. Not sure why the FileHandler doesn't work from the
+    # cluster...
     logging.basicConfig(format="%(asctime)s [%(levelname)s]: %(message)s",
                         datefmt="%Y-%m-%d %H:%M:%S",
                         level=logging.INFO,
