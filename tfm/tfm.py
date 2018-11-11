@@ -175,14 +175,14 @@ def correlation_with_confounds(signal: np.array,
 
 def double_heatmap(corrdf1: np.array, corrdf2: np.array) -> plt.Figure:
     fig, (ax1, ax2) = plt.subplots(ncols=2, figsize=plt.figaspect(1/2))
-    g1 = heatmap(corrdf1, vmin=0.35, vmax=0.8, ax=ax1,
-                 cbar=False, yticklabels=1,
-                 xticklabels=range(1, corrdf1.shape[1] + 1))
+    heatmap(corrdf1, vmin=0.35, vmax=0.8, ax=ax1,
+            cbar=False, yticklabels=1,
+            xticklabels=range(1, corrdf1.shape[1] + 1))
     ax1.set_title('sICA Timeseries')
     ax1.set_xlabel('Signal Component Index')
-    g2 = heatmap(corrdf2, vmin=0.35, vmax=0.8, ax=ax2,
-                 yticklabels=False,
-                 xticklabels=range(1, corrdf2.shape[1] + 1))
+    heatmap(corrdf2, vmin=0.35, vmax=0.8, ax=ax2,
+            yticklabels=False,
+            xticklabels=range(1, corrdf2.shape[1] + 1))
     ax2.set_title('tICA Timeseries')
     ax2.set_xlabel('TFM Index')
     plt.tight_layout()
@@ -553,9 +553,9 @@ def main(args) -> None:
         df = data_summary(out('melodic_unmix'))
         df.to_csv(out('network_contributions.csv'))
         f, ax = plt.subplots(figsize=plt.figaspect(1/2))
-        g = heatmap(df, ax, vmin=5, vmax=20, yticklabels=1,
-                    annot=True, fmt=".1f", linewidth=.5,
-                    xticklabels=range(1, df.shape[1] + 1))
+        heatmap(df, ax, vmin=5, vmax=20, yticklabels=1,
+                annot=True, fmt=".1f", linewidth=.5,
+                xticklabels=range(1, df.shape[1] + 1))
         ax.set_xlabel('TFM Index')
         # Should simplify the logic of these if calls... eventually.
         if tfmdata.confounds is not None:
@@ -609,21 +609,26 @@ def _cli_parser() -> argparse.ArgumentParser:
 
     # output directory
     parser.add_argument('inputdir', type=str,
-                        help='Input directory with melodic data, or input file for atlas-based tICA.')
+                        help=('Input directory with melodic data,'
+                              'or input file for atlas-based tICA.'))
 
     parser.add_argument('-o', '--outputdir', type=str, default='tfm.ica',
-                        help='Directory where results will be stored. Def: tfm.ica')
+                        help=('Directory where results will be stored.'
+                              ' Def: tfm.ica'))
 
     parser.add_argument('-l', '--labelfile', type=str,
                         default='hand_classification.txt',
-                        help='Name of classification file. Default hand_classification.txt')
+                        help=('Name of classification file.'
+                              ' Default hand_classification.txt'))
 
     parser.add_argument('--confounds', type=str,
                         default=None,
-                        help='Name of confounds file (tested with fmriprep confound files).')
+                        help=('Name of confounds file '
+                              '(tested with fmriprep confound files).'))
 
     parser.add_argument('--n_components', type=int, default=None,
-                        help='Number of components to extract from tICA decomposition')
+                        help=('Number of components to extract'
+                              ' from tICA decomposition'))
 
     parser.add_argument('--tolerance', type=float, default=1e-4,
                         help='ICA tolerance. Default 1e-4')
