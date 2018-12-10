@@ -273,7 +273,8 @@ class Data:
         self.kind = kind
 
         # Experimental support for fmriprep confounds
-        self.confounds = confounds[skipfirst:skiplast:decimate, :]
+        cofs = pd.read_csv(confounds, delimiter='\t')
+        self.confounds = cofs[skipfirst:skiplast:decimate, :]
 
     @property
     def rsns(self) -> np.array:
@@ -558,10 +559,10 @@ def main(args) -> None:
                delimiter='  ', fmt='%.6f')
 
     if tfmdata.confounds is not None:
-        cofs = pd.read_csv(tfmdata.confounds, delimiter='\t')
-        dfsignal = correlation_with_confounds(tfmdata.signal, cofs)
+        # cofs = pd.read_csv(tfmdata.confounds, delimiter='\t')
+        dfsignal = correlation_with_confounds(tfmdata.signal, tfmdata.confounds)
         dfsignal.to_csv(out('signal_correlation_to_confounds.csv'))
-        dftfm = correlation_with_confounds(sources, cofs)
+        dftfm = correlation_with_confounds(sources, tfmdata.confounds)
         contamination = dftfm.max(axis=0).values
         dftfm.to_csv(out('tfm_correlation_to_confounds.csv'))
         fig = double_heatmap(dfsignal, dftfm)
