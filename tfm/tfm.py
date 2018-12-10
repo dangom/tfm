@@ -274,7 +274,7 @@ class Data:
 
         # Experimental support for fmriprep confounds
         cofs = pd.read_csv(confounds, delimiter='\t')
-        self.confounds = cofs[skipfirst:skiplast:decimate, :]
+        self.confounds = cofs[skipfirst:skiplast:decimate]
 
     @property
     def rsns(self) -> np.array:
