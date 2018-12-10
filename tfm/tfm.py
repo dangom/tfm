@@ -246,12 +246,17 @@ class Data:
                  timeseries: np.array,
                  maps: nib.Nifti1Image,
                  kind: Optional[str] = None,
-                 confounds: Optional[str] = None) -> None:
+                 confounds: Optional[str] = None,
+                 decimate: Optional[int] = None,
+                 skipfirst: Optional[int] = None,
+                 skiplast: Optional[int] = None) -> None:
         """Timeseries is a numpy array.
         Maps is a nibabel Nifti1Image object.
         """
         assert timeseries.shape[-1] == maps.shape[-1]
-        self.timeseries = timeseries
+        if skiplast is not None:
+            skiplast *= -1
+        self.timeseries = timeseries[skipfirst:skiplast:decimate]
         self.maps = maps
 
         # here for compatibility with previous versions
@@ -262,7 +267,7 @@ class Data:
         self.kind = kind
 
         # Experimental support for fmriprep confounds
-        self.confounds = confounds
+        self.confounds = confounds[skipfirst:skiplast:decimate, :]
 
     @property
     def rsns(self) -> np.array:
@@ -278,7 +283,8 @@ class Data:
     def from_melodic(cls,
                      icadir: str,
                      labelfile: Optional[str] = None,
-                     confounds: Optional[str] = None):
+                     confounds: Optional[str] = None,
+                     **kwargs):
         """Load data from an FSL melodic directory.
         Assume labelfile is relative to the ica directory.
         """
@@ -298,24 +304,26 @@ class Data:
                                           melodic_oic.affine)
 
         return cls(timeseries=melodic_mix, maps=melodic_oic, kind='melodic',
-                   confounds=confounds)
+                   confounds=confounds, **kwargs)
 
     @classmethod
     def from_dual_regression(cls,
                              drdir: str,
-                             confounds: Optional[str] = None):
+                             confounds: Optional[str] = None,
+                             **kwargs):
         """Load data from an FSL dual regression directory.
         """
         stage1 = np.loadtxt(op.join(drdir, 'dr_stage1_subject00000.txt'))
         stage2 = nib.load(op.join(drdir, 'dr_stage2_subject00000.nii.gz'))
         return cls(timeseries=stage1, maps=stage2, kind='dr',
-                   confounds=confounds)
+                   confounds=confounds, **kwargs)
 
     @classmethod
     def from_fmri_data(cls,
                        datafile: str,
                        atlas: Optional[str] = None,
-                       confounds: Optional[str] = None):
+                       confounds: Optional[str] = None,
+                       **kwargs):
         """Take a 4D dataset and generate signals from the atlas parcels.
         """
         atlas = MIST_ATLAS_444 if atlas is None else atlas
@@ -331,7 +339,7 @@ class Data:
         signals = masker.fit_transform(datafile)
         atlasrois = atlas_roitovol(atlas, nrois=signals.shape[-1])
         return cls(timeseries=signals, maps=atlasrois, kind='atlas',
-                   confounds=confounds)
+                   confounds=confounds, **kwargs)
 
 
 class TFM:
@@ -447,15 +455,21 @@ def _data_loader(args) -> Data:
     """
     labelfile = args.labelfile if not args.no_label else None
 
+    skipvols = {'skipfirst': args.skipfirst,
+                'skiplast': args.skiplast,
+                'decimate': args.decimate}
+
     if os.path.isdir(args.inputdir):
         if os.path.abspath(args.inputdir).endswith('.ica'):
             tfmdata = Data.from_melodic(args.inputdir, labelfile=labelfile,
-                                        confounds=args.confounds)
+                                        confounds=args.confounds, **skipvols)
         else:
             tfmdata = Data.from_dual_regression(args.inputdir,
-                                                confounds=args.confounds)
+                                                confounds=args.confounds,
+                                                **skipvols)
     else:
-        tfmdata = Data.from_fmri_data(args.inputdir, confounds=args.confounds)
+        tfmdata = Data.from_fmri_data(args.inputdir, confounds=args.confounds,
+                                      **skipvols)
 
     return tfmdata
 
@@ -628,6 +642,16 @@ def _cli_parser() -> argparse.ArgumentParser:
     parser.add_argument('--n_components', type=int, default=None,
                         help=('Number of components to extract'
                               ' from tICA decomposition'))
+
+    parser.add_argument('--decimate', type=int, default=None,
+                        help=('Take only every other Nth timepoint'
+                              ' from the original signals'))
+
+    parser.add_argument('--skipfirst', type=int, default=None,
+                        help=('Skip the first N volumes'))
+
+    parser.add_argument('--skiplast', type=int, default=None,
+                        help=('Skip the last N volumes'))
 
     parser.add_argument('--tolerance', type=float, default=1e-4,
                         help='ICA tolerance. Default 1e-4')
