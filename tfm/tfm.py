@@ -99,7 +99,9 @@ def labeled_unmix(unmix: str) -> pd.DataFrame:
 
 
 def data_summary(filename_or_matrix: Union[str, np.array],
-                 target_res: int = 12) -> pd.DataFrame:
+                 target_res: int = 12,
+                 normalise: bool = True,
+                 absolute_vals: bool = True) -> pd.DataFrame:
     """Return a DataFrame with the core matrix summarized by
     networks. Values are given by % contribution to each tfm.
     """
@@ -107,14 +109,18 @@ def data_summary(filename_or_matrix: Union[str, np.array],
         mat = filename_or_matrix
     else:
         mat = np.loadtxt(filename_or_matrix)
-    data_raw = np.abs(pd.DataFrame(mat))
+
+    data_raw = pd.DataFrame(mat)
+    if absolute_vals:
+        data_raw = np.abs(data_raw)
     _, parent_names, _ = atlas_parcel_labels(len(data_raw), target_res)
     data_raw['name'] = parent_names
     data = data_raw.groupby('name').aggregate(sum)
 
     # Normalise TFMs such that contributions of all networks sum to 100%
-    for column in data:
-        data[column] = 100*data[column]/np.sum(data[column])
+    if normalise:
+        for column in data:
+            data[column] = 100*data[column]/np.sum(data[column])
 
     # Replace '_' for ' ' in the network labels.
     data.index = pd.Index(np.array(list(map(lambda x: x.replace('_', ' '),
@@ -559,6 +565,7 @@ def main(args) -> None:
         contamination = dftfm.max(axis=0).values
         dftfm.to_csv(out('tfm_correlation_to_confounds.csv'))
         fig = double_heatmap(dfsignal, dftfm)
+        # TODO Why a different filename here? Fix this in future release.
         fig.savefig(out('correlation_with_confounds.png'))
 
     if tfmdata.kind == 'atlas':
@@ -594,14 +601,13 @@ def run_tfm() -> None:
     """Wrapper to be used as entry point for a command line tool.
     """
 
-    parser = _cli_parser()
-    args = parser.parse_args()
+    args = _cli_parser().parse_args()
     main(args)
 
 
 def run_correlation_with_confounds() -> None:
-    parser = _cli_parser()
-    args = parser.parse_args()
+
+    args = _cli_parser().parse_args()
 
     # Note, this function has side-effects.
     outdir = _check_dirs(args)
@@ -613,6 +619,18 @@ def run_correlation_with_confounds() -> None:
     dftfm = correlation_with_confounds(np.loadtxt(out('melodic_mix')),
                                        cofs)
     dftfm.to_csv(out('tfm_correlation_to_confounds.csv'))
+
+
+# TODO: Finish implementing this function and make it an entry point.
+def run_summary_tms() -> None:
+
+    args = _cli_parser().parse_args()
+
+    # Note, this function has side-effects.
+    outdir = _check_dirs(args)
+
+    def out(name: str) -> str:
+        return os.path.join(outdir, name)
 
 
 def _cli_parser() -> argparse.ArgumentParser:
