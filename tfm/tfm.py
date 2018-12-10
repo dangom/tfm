@@ -27,9 +27,8 @@ import nibabel as nib
 import numpy as np
 import pandas as pd
 import seaborn as sns
-from sklearn.decomposition import FastICA
-
 from nilearn.input_data import NiftiLabelsMasker
+from sklearn.decomposition import FastICA
 
 from . import __version__
 
