@@ -273,8 +273,11 @@ class Data:
         self.kind = kind
 
         # Experimental support for fmriprep confounds
-        cofs = pd.read_csv(confounds, delimiter='\t')
-        self.confounds = cofs[skipfirst:skiplast:decimate]
+        if confounds is not None:
+            cofs = pd.read_csv(confounds, delimiter='\t')
+            self.confounds = cofs[skipfirst:skiplast:decimate]
+        else:
+            self.confounds = None
 
     @property
     def rsns(self) -> np.array:
