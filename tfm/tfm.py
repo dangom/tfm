@@ -266,8 +266,8 @@ class Data:
 
     @property
     def rsns(self) -> np.array:
-        temporal = self.maps.shape[-1]
-        data = np.reshape(self.maps.get_data(), (-1, temporal))
+        n_parcels = self.maps.shape[-1]
+        data = np.reshape(self.maps.get_data(), (-1, n_parcels))
         return data
 
     @property
