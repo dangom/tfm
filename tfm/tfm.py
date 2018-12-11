@@ -22,15 +22,20 @@ import sys
 import warnings
 from typing import List, Optional, Tuple, Union
 
-import matplotlib.pyplot as plt
 import nibabel as nib
 import numpy as np
 import pandas as pd
-import seaborn as sns
 from nilearn.input_data import NiftiLabelsMasker
 from sklearn.decomposition import FastICA
 
 from . import __version__
+
+if 'DISPLAY' not in os.environ:
+    import matplotlib
+    matplotlib.use('agg')
+import matplotlib.pyplot as plt # noqa:E402 isort:skip
+import seaborn as sns # noqa:E402 isort:skip
+
 
 MIST_ROOT = op.join(op.dirname(__file__), 'mistatlas')
 MIST_ATLAS_444 = op.join(MIST_ROOT, 'Parcellations/MIST_444.nii.gz')
