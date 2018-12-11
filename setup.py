@@ -46,6 +46,7 @@ setup(
         'console_scripts': [
             'tfm = tfm.tfm:run_tfm',
             'tfm_confounds=tfm.tfm:run_correlation_with_confounds',
+            'tfm_summary=tfm.tfm:run_summary_tfms',
             'raicar = tfm.raicar:main'
         ]
     },

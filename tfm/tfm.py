@@ -618,7 +618,7 @@ def run_correlation_with_confounds() -> None:
 
     args = _cli_parser().parse_args()
 
-    # Note, this function has side-effects.
+    # Note, this function may create a directory (side-effects)
     outdir = _check_dirs(args)
 
     def out(name: str) -> str:
@@ -630,16 +630,33 @@ def run_correlation_with_confounds() -> None:
     dftfm.to_csv(out('tfm_correlation_to_confounds.csv'))
 
 
-# TODO: Finish implementing this function and make it an entry point.
-def run_summary_tms() -> None:
+def run_summary_tfms() -> None:
 
     args = _cli_parser().parse_args()
 
-    # Note, this function has side-effects.
+    # Note, this function may create a directory (side-effects)
     outdir = _check_dirs(args)
 
     def out(name: str) -> str:
         return os.path.join(outdir, name)
+
+    df = data_summary(out('melodic_unmix'), target_res=36,
+                      normalise=False,
+                      absolute_vals=False)
+    df.to_csv(out('network_contributions_raw.csv'))
+    f, ax = plt.subplots(figsize=plt.figaspect(1/2))
+    heatmap(df, ax, vmin=-5, vmax=5, yticklabels=1,
+            annot=True, fmt=".1f", linewidth=.5)
+    ax.set_xlabel('TFM Index')
+    ax.set_xticklabels(range(1, df.shape[1] + 1),
+                       rotation=90)  # ha="right"
+    plt.tight_layout()
+    f.savefig(out('melodic_unmix_raw.png'))
+    # Also save the summary with MIST 64 instead of only MIST 12.
+    df_64 = data_summary(out('melodic_unmix'), target_res=64,
+                         normalise=False,
+                         absolute_vals=False)
+    df_64.to_csv(out('network_contributions_64_raw.csv'))
 
 
 def _cli_parser() -> argparse.ArgumentParser:
