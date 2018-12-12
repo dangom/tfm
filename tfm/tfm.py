@@ -125,7 +125,7 @@ def data_summary(filename_or_matrix: Union[str, np.array],
     # Normalise TFMs such that contributions of all networks sum to 100%
     if normalise:
         for column in data:
-            data[column] = 100*data[column]/np.sum(data[column])
+            data[column] = 100*data[column]/np.sum(np.abs(data[column]))
 
     # Replace '_' for ' ' in the network labels.
     data.index = pd.Index(np.array(list(map(lambda x: x.replace('_', ' '),
@@ -569,7 +569,8 @@ def main(args) -> None:
 
     if tfmdata.confounds is not None:
         # cofs = pd.read_csv(tfmdata.confounds, delimiter='\t')
-        dfsignal = correlation_with_confounds(tfmdata.signal, tfmdata.confounds)
+        dfsignal = correlation_with_confounds(tfmdata.signal,
+                                              tfmdata.confounds)
         dfsignal.to_csv(out('signal_correlation_to_confounds.csv'))
         dftfm = correlation_with_confounds(sources, tfmdata.confounds)
         contamination = dftfm.max(axis=0).values
@@ -589,14 +590,11 @@ def main(args) -> None:
         ax.set_xlabel('TFM Index')
         # Should simplify the logic of these if calls... eventually.
         if tfmdata.confounds is not None:
-            # What I'm doing here is changing the x labels of the TFMs in the
-            # plot, such that their color interpolates from green (no
-            # contamination), to red (complete contamination), over yellow. The
-            # contamination is computed as the max correlation between the TFM
-            # timecourse and the confounding regressors.
             contamination = dftfm.max(axis=0).values.tolist()
-            colors = [(min(1, 2 * x),
-                       min(1, 2 * (1 - x)), 0) for x in contamination]
+            # Green for clean, red for contaminated (interp over yellow.)
+            # colors = [(min(1, 2 * x),
+            #            min(1, 2 * (1 - x)), 0) for x in contamination]
+            colors = ['black' if x < 0.5 else 'red' for x in contamination]
             for label, color in zip(ax.get_xticklabels(), colors):
                 label.set_color(color)
                 label.set_weight('bold')
@@ -641,16 +639,26 @@ def run_summary_tfms() -> None:
     def out(name: str) -> str:
         return os.path.join(outdir, name)
 
-    df = data_summary(out('melodic_unmix'), target_res=36,
-                      normalise=False,
+    df = data_summary(out('melodic_unmix'), target_res=20,
+                      normalise=True,
                       absolute_vals=False)
     df.to_csv(out('network_contributions_raw.csv'))
     f, ax = plt.subplots(figsize=plt.figaspect(1/2))
-    heatmap(df, ax, vmin=-5, vmax=5, yticklabels=1,
-            annot=True, fmt=".1f", linewidth=.5)
+    heatmap(df, ax, vmin=-7, vmax=7, yticklabels=1,
+            annot=True, fmt=".0f", linewidth=.4)
     ax.set_xlabel('TFM Index')
     ax.set_xticklabels(range(1, df.shape[1] + 1),
-                       rotation=90)  # ha="right"
+                       rotation=0)  # ha="right"
+    if op.exists(out('tfm_correlation_to_confounds.csv')):
+        cofs = pd.read_csv('tfm_correlation_to_confounds.csv',
+                           index_col=0)
+        contamination = cofs.max(axis=0).values.tolist()
+        # colors = [(min(1, 2 * x),
+        #            min(1, 2 * (1 - x)), 0) for x in contamination]
+        colors = ['black' if x < 0.5 else 'red' for x in contamination]
+        for label, color in zip(ax.get_xticklabels(), colors):
+            label.set_color(color)
+            label.set_weight('bold')
     plt.tight_layout()
     f.savefig(out('melodic_unmix_raw.png'))
     # Also save the summary with MIST 64 instead of only MIST 12.
