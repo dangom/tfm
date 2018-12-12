@@ -540,7 +540,8 @@ def main(args) -> None:
                           max_iter=max_iter,
                           tol=tolerance,
                           algorithm=algorithm,
-                          random_state=np.random.randint(0, 2**32 - 1))
+                          random_state=np.random.randint(0, 2**32 - 1),
+                          demean_tfms=args.skipdemean)
             tfms, sources = tfm_ica.fit_transform(tfmdata)
         except UserWarning:
             try_counter += 1
@@ -708,5 +709,8 @@ def _cli_parser() -> argparse.ArgumentParser:
 
     parser.add_argument('--no-label', action='store_true',
                         help='Consider all components to be signals.')
+
+    parser.add_argument('--skipdemean', action='store_false',
+                        help='Do not demean TFM maps.')
 
     return parser
