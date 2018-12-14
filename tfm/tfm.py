@@ -717,7 +717,7 @@ def _cli_parser() -> argparse.ArgumentParser:
     parser.add_argument('--force', action='store_true',
                         help='Overwrite files.')
 
-    parser.add_argument('--atlas', type='str', default=None,
+    parser.add_argument('--atlas', type=str, default=None,
                         help=('Atlas to use for generating TFMs,'
                               'in case of atlas-based approach. Default: MIST 444'))
 
