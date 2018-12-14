@@ -483,7 +483,9 @@ def _data_loader(args) -> Data:
                                                 confounds=args.confounds,
                                                 **skipvols)
     else:
-        tfmdata = Data.from_fmri_data(args.inputdir, confounds=args.confounds,
+        tfmdata = Data.from_fmri_data(args.inputdir,
+                                      atlas=args.atlas,
+                                      confounds=args.confounds,
                                       **skipvols)
 
     return tfmdata
@@ -714,6 +716,10 @@ def _cli_parser() -> argparse.ArgumentParser:
 
     parser.add_argument('--force', action='store_true',
                         help='Overwrite files.')
+
+    parser.add_argument('--atlas', type='str', default=None,
+                        help=('Atlas to use for generating TFMs,'
+                              'in case of atlas-based approach. Default: MIST 444'))
 
     parser.add_argument('--no-label', action='store_true',
                         help='Consider all components to be signals.')
