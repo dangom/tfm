@@ -341,7 +341,11 @@ class Data:
                        **kwargs):
         """Take a 4D dataset and generate signals from the atlas parcels.
         """
-        atlas = MIST_ATLAS_444 if atlas is None else atlas
+        if atlas is None:
+            atlas = MIST_ATLAS_444
+            kind = 'atlas'
+        else:
+            kind = 'atlas_custom'
 
         # Resampling target should be the image with lowest resolution.
         # Assuming that the data resolution is isotropic for now.
@@ -353,7 +357,7 @@ class Data:
                                    resampling_target=resampling_target)
         signals = masker.fit_transform(datafile)
         atlasrois = atlas_roitovol(atlas, nrois=signals.shape[-1])
-        return cls(timeseries=signals, maps=atlasrois, kind='atlas',
+        return cls(timeseries=signals, maps=atlasrois, kind=kind,
                    confounds=confounds, **kwargs)
 
 
