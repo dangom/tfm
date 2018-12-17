@@ -421,9 +421,10 @@ class TFM:
 
         # Because ICA orientation is arbitrary, make it such that largest value
         # is always positive. Also flip the timeseries.
-        for spatial_map, ts in zip(tfm.T, sources.T):
+        for spatial_map, weights, ts in zip(tfm.T, mixing.T, sources.T):
             if spatial_map[np.abs(spatial_map).argmax()] < 0:
                 spatial_map *= -1
+                weights *= -1
                 ts *= -1
 
         # Now order the components according to the RMS of the mixing matrix.
