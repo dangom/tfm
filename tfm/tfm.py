@@ -185,14 +185,23 @@ def correlation_with_confounds(signal: np.array,
 
 def double_heatmap(corrdf1: np.array, corrdf2: np.array) -> plt.Figure:
     fig, (ax1, ax2) = plt.subplots(ncols=2, figsize=plt.figaspect(1/2))
-    heatmap(corrdf1, vmin=0.35, vmax=0.8, ax=ax1,
+    vmin, vmax = 0.3, 0.75
+    heatmap(corrdf1, vmin=vmin, vmax=vmax, ax=ax1,
             cbar=False, yticklabels=1,
             xticklabels=range(1, corrdf1.shape[1] + 1))
     ax1.set_title('sICA Timeseries')
     ax1.set_xlabel('Signal Component Index')
-    heatmap(corrdf2, vmin=0.35, vmax=0.8, ax=ax2,
+    ax1.set_xticklabels(range(1, corrdf1.shape[1] + 1), rotation=0)
+    for idx, label in enumerate(ax1.xaxis.get_ticklabels()):
+        if idx % 4 != 0:
+            label.set_visible(False)
+    heatmap(corrdf2, vmin=vmin, vmax=vmax, ax=ax2,
             yticklabels=False,
             xticklabels=range(1, corrdf2.shape[1] + 1))
+    # Yes, it is necessary to pass the xticklabels again.
+    ax2.set_xticklabels(range(1, corrdf2.shape[1] + 1), rotation=0)
+    for label in ax2.xaxis.get_ticklabels()[1::2]:
+        label.set_visible(False)
     ax2.set_title('tICA Timeseries')
     ax2.set_xlabel('TFM Index')
     plt.tight_layout()
