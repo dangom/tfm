@@ -149,7 +149,8 @@ def heatmap(data: np.array, ax, **kwargs):
     """Plot the core TFM mixing matrix as a heatmap, which ROIs contributions
     aggregated by the 12 MIST functional networks.
     """
-    g = sns.heatmap(data, ax=ax, **kwargs)
+    cmap = 'afmhot_r'
+    g = sns.heatmap(data, ax=ax, cmap=cmap, **kwargs)
 
     ax.set_yticklabels(ax.get_yticklabels(), fontsize=8)
     return g
@@ -650,7 +651,7 @@ def main(args) -> None:
             # Green for clean, red for contaminated (interp over yellow.)
             # colors = [(min(1, 2 * x),
             #            min(1, 2 * (1 - x)), 0) for x in contamination]
-            colors = ["black" if x < 0.5 else "red" for x in contamination]
+            colors = ["black" if x < 0.45 else "red" for x in contamination]
             for label, color in zip(ax.get_xticklabels(), colors):
                 label.set_color(color)
                 label.set_weight("bold")
@@ -700,7 +701,8 @@ def run_summary_tfms() -> None:
     df.to_csv(out("network_contributions_raw.csv"))
     f, ax = plt.subplots(figsize=plt.figaspect(1 / 2))
     heatmap(
-        df, ax, vmin=-7, vmax=7, yticklabels=1, annot=True, fmt=".0f", linewidth=0.4
+        df, ax, vmin=-7, vmax=7, yticklabels=1, annot=True, fmt=".0f",
+        square=True, linewidth=0.4
     )
     ax.set_xlabel("TFM Index")
     ax.set_xticklabels(range(1, df.shape[1] + 1), rotation=0)  # ha="right"
@@ -713,6 +715,7 @@ def run_summary_tfms() -> None:
         for label, color in zip(ax.get_xticklabels(), colors):
             label.set_color(color)
             label.set_weight("bold")
+    ax.yaxis.label.set_size(10)
     plt.tight_layout()
     f.savefig(out("melodic_unmix_raw.png"))
     # Also save the summary with MIST 64 instead of only MIST 12.
