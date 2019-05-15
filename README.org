@@ -5,8 +5,11 @@ In other words, run a temporal ICA on the timeseries of spatial ICA, and then re
 
 Temporally-independent functional modes of spontaneous brain activity (Smith et al. 2012).
 
-Temporal Functional Modes are actually nothing but temporal ICA run on parcels of the brain, instead of voxels directly. Provided there are enough timepoints for tICA to converge, there is little difference in running the TFM algorithm directly on signals obtained from an atlas based parcellation, instead of a spatial ICA parcellation (as suggested in the original TFM contribution). Therefore, this repository also ships with the MIST parcellation atlas for directly application of temporal ICA for fMRI data.
+Or done at the single-subject level at:
 
+[[http://index.mirasmart.com/ISMRM2019/PDFfiles/0911.html][Subject specific functional connectivity fingerprints made possible with temporal ICA]]
+
+Temporal Functional Modes as described in Smith 2012 are actually nothing but temporal ICA run on parcels of the brain, instead of voxels directly. Provided there are enough timepoints for tICA to converge, there is little difference in running the TFM algorithm directly on signals obtained from an atlas based parcellation, instead of a spatial ICA parcellation (as suggested in the original TFM contribution). Therefore, this repository also ships with the MIST parcellation atlas for directly application of temporal ICA for fMRI data.
 
 * Installation
 
